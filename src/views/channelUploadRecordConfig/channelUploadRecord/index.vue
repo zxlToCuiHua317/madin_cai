@@ -28,16 +28,42 @@
             :value="item.value"
           />
         </el-select>
+        <el-select
+          v-model="query.type"
+          clearable
+          size="small"
+          placeholder="数据渠道"
+          class="filter-item"
+          style="width: 150px"
+        >
+          <el-option
+            v-for="item in channelData"
+            :key="item.key"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
         <rrOperation :crud="crud" />
         <el-button
           v-if="crud.optShow.download"
           :loading="crud.downloadLoading"
-          class="filter-item postin"
+          :disabled="!checkPer(['admin','channelUploadRecord:add'])"
+          class="filter-item "
+          size="mini"
+          type="primary"
+          icon="el-icon-plus"
+          @click="addGameInfo()"
+        >新增</el-button>
+        <el-button
+          v-if="crud.optShow.download"
+          :loading="crud.downloadLoading"
+          :disabled="!checkPer(['admin','channelUploadRecord:add'])"
+          class="filter-item"
           size="mini"
           type="warning"
           icon="el-icon-download"
-          @click="addGameInfo()"
-        >新增</el-button>
+          @click="exprotGameInfo()"
+        >导出</el-button>
       </div>
 
       <!--如果想在工具栏加入更多按钮，可以使用插槽方式， slot = 'left' or 'right'-->
@@ -47,9 +73,9 @@
         :visible.sync="isShowDelg"
         width="645px"
         top="5vh"
-        height="95%"
         title="新增"
         :before-close="beforClose"
+        :close-on-click-modal="false"
       >
         <el-form
           ref="form"
@@ -58,18 +84,18 @@
           size="small"
           label-width="150px"
         >
-          <el-form-item label="渠道类型">
+          <el-form-item label="数据渠道">
             <el-select
               v-model="scopeData.type"
               clearable
               size="small"
-              placeholder="渠道类型"
+              placeholder="数据渠道"
               class="filter-item"
               style="width: 150px"
-              :disabled="isFlag"
+              @change="getDateInfo"
             >
               <el-option
-                v-for="item in channelArr"
+                v-for="item in channelData"
                 :key="item.key"
                 :label="item.label"
                 :value="item.value"
@@ -86,20 +112,12 @@
               class="date-item"
               value-format="yyyy-MM"
               placeholder="选择时间"
+              @change="getDateInfo"
             >
               />
-            </el-date-picker></el-form-item>
-
-          <el-form-item label="备注">
-            <el-input
-              v-model="scopeData.remark"
-              type="textarea"
-              :rows="8"
-              style="width: 80%"
-            />
+            </el-date-picker>
           </el-form-item>
-
-          <el-form-item v-if="isAdd" label="文件上传">
+          <el-form-item label="文件上传">
             <el-upload
               ref="upload"
               :limit="1"
@@ -116,11 +134,20 @@
               <i class="el-icon-upload" />
             </el-upload>
           </el-form-item>
+          <el-form-item label="备注">
+            <el-input
+              v-model="scopeData.remark"
+              type="textarea"
+              :rows="8"
+              style="width: 80%"
+            />
+          </el-form-item>
+
         </el-form>
         <div slot="footer" class="dialog-footer">
           <el-button @click="closeTip">取消</el-button>
           <el-button
-            :loading="crud.cu === 2"
+            :loading="isLoading"
             type="primary"
             @click="getServiceValue"
           >确认</el-button>
@@ -143,13 +170,8 @@
           label="id"
           width="60px"
         />
-        <el-table-column
-          align="center"
-          prop="index"
-          label="序号"
-          width="60px"
-        />
-        <el-table-column align="center" prop="type" label="渠道类型" />
+        <el-table-column align="center" prop="index" label="序号" width="60" />
+        <el-table-column align="center" prop="type" label="数据渠道" />
         <el-table-column align="center" prop="uploadTime" label="上传时间" width="180" />
         <el-table-column align="center" prop="filename" label="上传文件名" />
         <el-table-column align="center" prop="status" label="状态">
@@ -160,7 +182,7 @@
         <el-table-column align="center" prop="remark" label="备注" />
         <el-table-column align="center" prop="errMsg" label="错误信息">
           <template slot-scope="scope">
-            <el-popover placement="top" title="消息内容" width="300" trigger="hover">
+            <el-popover v-if="scope.row.errMsg" placement="top" title="消息内容" width="300" trigger="hover">
               <div>{{ scope.row.errMsg }}</div>
               <span slot="reference">{{ scope.row.errMsg.substr(0,30) + "..." }}</span>
             </el-popover>
@@ -174,9 +196,10 @@
 </template>
 
 <script>
-import { crudUploadFile } from '@/api/channelUploadRecordConfig/channelUploadRecord'
-import { parseTime } from '@/utils/index'
+import crudUploadFile from '@/api/channelUploadRecordConfig/channelUploadRecord'
 import CRUD, { presenter, header, form, crud } from '@crud/crud'
+import { download } from '@/api/data'
+import { downloadFile } from '@/utils/index'
 import rrOperation from '@crud/RR.operation'
 import crudOperation from '@crud/CRUD.operation'
 import pagination from '@crud/Pagination'
@@ -207,10 +230,10 @@ export default {
       scopeData: {
         type: null,
         uploadTime: null,
-        filepath: null,
+        uploadFile: null,
         remark: null
       },
-      getStatus: ['上传完成等待处理', '处理完成且处理成功', '处理失败'],
+      getStatus: ['等待处理', '处理成功', '处理失败'],
       channelArr: [],
       fileList: [],
       permission: {
@@ -227,17 +250,24 @@ export default {
         { label: '处理成功', value: 1 },
         { label: '处理失败', value: 2 }
       ],
+      channelData: [
+        { label: 'huawei', value: 'huawei' },
+        { label: 'paypal', value: 'paypal' },
+        { label: 'payermax', value: 'payermax' },
+        { label: 'paymentwall', value: 'paymentwall' },
+        { label: 'stripe', value: 'stripe' }
+      ],
       curdHook: '',
       logo: null,
       client: null,
       nowDate: new Date().getTime(),
       getRequestUrls: null,
       getuploadPath: null,
-      isAdd: true,
-      isEdit: false,
       fileName: null,
       fileNamespace: null,
-      isFlag: false
+      isLoading: false,
+      formData: new FormData(),
+      renderFile: new FileReader()
     }
   },
   created() {
@@ -251,7 +281,9 @@ export default {
     onBeforeUploadImage(file) {
       console.log(file)
     },
-    UploadImage() {},
+
+    UploadImage() {
+    },
     fileChange(file) {
       this.logo = file.raw // 取出上传文件的对象，在其它地方也可以使用
       this.fileList.push(this.logo)
@@ -269,85 +301,120 @@ export default {
       this.dlogTitle = '新增'
     },
     checkUpLadoInfo(data) {
-      this.isEdit = true
-      this.isAdd = false
-      this.isFlag = true
       const deepData = JSON.parse(JSON.stringify(data))
       this.isShowDelg = !this.isShowDelg
       this.scopeData = deepData
       this.curdHook = 'edit'
       this.dlogTitle = '编辑'
     },
+    exprotGameInfo() {
+      const params = this.crud.getQueryParams()
+      const filename = {
+        channel: params.type,
+        uploadTime: params.uploadTime
+      }
+      console.log(params)
+      if (params.type && params.uploadTime) {
+        download('/api/channelUploadRecord/downloadFinaTemp', params)
+          .then((result) => {
+            downloadFile(result, filename, 'xlsx')
+            this.crud.downloadLoading = false
+          })
+          .catch(() => {
+            this.crud.downloadLoading = false
+          })
+      } else {
+        if (params.type) {
+          this.$notify({
+            message: '请选择时间',
+            type: 'warning'
+          })
+        } else if (params.uploadTime) {
+          this.$notify({
+            message: '请选择渠道',
+            type: 'warning'
+          })
+        } else {
+          this.$notify({
+            message: '请选择参数',
+            type: 'warning'
+          })
+        }
+      }
+    },
     getServiceValue() {
-      const _this = this
       switch (this.curdHook) {
         case 'add':
-
+          this.isLoading = true
           console.log(this.fileList)
-          this.fileName = this.fileList[0].name
-          this.fileNamespace = this.fileName.split('.')
-          // 实例化OSS Client。
-          // object表示上传到OSS的文件名称。
-          // file表示浏览器中需要上传的文件，支持HTML5 file和Blob类型。
-          this.client.put(this.getuploadPath + this.nowDate + '.' + this.fileNamespace[1], this.fileList[0]).then(function(r1) {
-            console.log('put success: %j', r1)
-            _this.getRequestUrls = r1.url
-            // 判断是否 上传成功 并且 获取到了 上传访问路径
-            if (_this.getRequestUrls) {
-              _this.scopeData.createTime = parseTime(new Date())
-              _this.scopeData.filepath = _this.getRequestUrls
-              _this.scopeData.status = 0
-              crudUploadFile.add(_this.scopeData).then(res => {
-                _this.$notify({
-                  message: '新增成功',
-                  type: 'warning'
-                })
-                _this.isShowDelg = !_this.isShowDelg
-                _this.crud.refresh()
-              }).catch(err => {
-                _this.$message.error(err)
-              })
-            }
-          }).then(r2 => {
-            console.log(r2)
-          })
-            .catch(function(err) {
-              _this.$message.error(err)
-            })
+          //   this.fileName = this.fileList[0].name
+          //   this.fileNamespace = this.fileName.split('.')
+          this.renderFile.read
+          this.formData.append('uploadFile', this.fileList[0])
+          this.scopeData.uploadFile = this.formData
 
-          break
-        case 'edit':
-          this.isShowDelg = !this.isShowDelg
-          this.isEdit = false
-          this.isAdd = true
-          this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
-          for (var key in this.scopeData) {
-            this.scopeData[key] = null
+          if (this.scopeData.type && this.scopeData.uploadFile && this.scopeData.uploadTime && this.scopeData.remark) {
+            this.formData.append('type', this.scopeData.type)
+            this.formData.append('uploadTime', this.scopeData.uploadTime)
+            this.formData.append('remark', this.scopeData.remark)
+            crudUploadFile.add(this.formData).then(res => {
+              this.isLoading = false
+              this.$notify({
+                message: '新增成功',
+                type: 'success'
+              })
+              this.closeTip()
+              this.crud.refresh()
+            }).catch(err => {
+              this.$message.error(err)
+            })
+          } else {
+            this.isLoading = false
+            this.$notify({
+              message: '请填入必填参数',
+              type: 'warning'
+            })
           }
+
           break
       }
     },
     closeTip() {
-      this.isEdit = false
-      this.isAdd = true
-      this.isFlag = true
       this.isShowDelg = !this.isShowDelg
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
+      this.fileList = []
       for (var key in this.scopeData) {
         this.scopeData[key] = null
       }
     },
     beforClose() {
-      this.isEdit = false
-      this.isAdd = true
-      this.isFlag = true
       this.isShowDelg = !this.isShowDelg
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
+      this.fileList = []
       for (var key in this.scopeData) {
         this.scopeData[key] = null
       }
     },
-    handlePreview() {}
+    getDateInfo() {
+      if (this.scopeData.type) {
+        this.crud.data.forEach((item, index) => {
+          if (item.type === this.scopeData.type && this.scopeData.uploadTime === item.uploadTime) {
+            this.$confirm(this.scopeData.type + '渠道在 "' + this.scopeData.uploadTime + '"已有数据,重复上传会导致之前上传的数据失效!是否继续?', '提示', {
+              confirmButtonText: '确定',
+              cancelButtonText: '取消',
+              type: 'warning'
+            }).then(() => {
+
+            }).catch(() => {
+
+            })
+          }
+        })
+      }
+    },
+    ch() {
+
+    }
   }
 }
 </script>
@@ -407,6 +474,7 @@ export default {
 ::v-deep .el-dialog__wrapper {
   .el-dialog {
     overflow: auto;
+    border-radius: 5px;
     .el-dialog__header {
       padding: 20px;
       padding-bottom: 10px;

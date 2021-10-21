@@ -138,7 +138,14 @@ function CRUD(options) {
             table.store.states.lazyTreeNodeMap = {}
           }
           crud.page.total = data.totalElements
-          crud.data = data.content
+
+          // 添加 index 进数据
+          crud.data = data.content.map((item, index) => {
+            item.index = (crud.page.page - 1) * crud.page.size + index + 1
+            return item
+          })
+
+          // crud.data = data.content
           crud.resetDataStatus()
           // time 毫秒后显示表格
           setTimeout(() => {

@@ -55,6 +55,76 @@
             icon="el-icon-plus"
             @click="addConfig()"
           >新增</el-button>
+          <el-dialog
+            :visible.sync="isShowDelg"
+            width="750px"
+            top="5vh"
+            :title="dlogTitle"
+            :before-close="beforClose"
+            :close-on-click-modal="false"
+          >
+            <el-form
+              ref="form"
+              :model="scopeData"
+              :rules="rules"
+              size="small"
+              label-width="120px"
+            >
+              <el-form-item label="gameCode">
+                <el-input v-model="scopeData.game_code" placeholder="请输入gameCode" style="width: 80%;" />
+              </el-form-item>
+              <el-form-item label="游戏名">
+                <el-input v-model="scopeData.game_name" placeholder="请输入游戏名" style="width: 80%;" />
+              </el-form-item>
+              <el-form-item label="上线时间">
+                <el-date-picker
+                  v-model="scopeData.online_time"
+                  type="date"
+                  placeholder="选择日期"
+                />
+              </el-form-item>
+              <el-form-item label="游戏包名">
+                <el-input v-model="scopeData.package_name" placeholder="请输入游戏包名" style="width: 80%;" />
+              </el-form-item>
+              <el-form-item label="渠道">
+                <el-select
+                  v-model="scopeData.channel_type"
+                  clearable
+                  size="small"
+                  placeholder="渠道类型"
+                  class="filter-item"
+                  style="width: 150px"
+                >
+                  <el-option
+                    v-for="item in channelArr"
+                    :key="item.key"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="账号">
+                <el-input v-model="scopeData.account_num" placeholder="请输入账号" style="width: 80%;" />
+              </el-form-item>
+              <el-form-item label="备注">
+                <el-input
+                  v-model="scopeData.remark"
+                  placeholder="请输入备注"
+                  style="width: 80%"
+                  type="textarea"
+                  :rows="2"
+                />
+              </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+              <el-button @click="closeTip">取消</el-button>
+              <el-button
+                :loading="dialogLoading"
+                type="primary"
+                @click="getServiceValue"
+              >确认</el-button>
+            </div>
+          </el-dialog>
           <!--表格渲染-->
           <el-table
             ref="table"
@@ -66,7 +136,6 @@
             style="width: 100%"
             highlight-current-row
             @current-change="handleCurrentChange"
-            @row-click="rowEvent"
           >
             <el-table-column
               v-if="isShow"
@@ -91,6 +160,44 @@
             </el-table-column>
             <el-table-column align="center" prop="account_num" label="账号" />
             <el-table-column align="center" prop="remark" label="备注" />
+            <el-table-column
+              fixed="right"
+              label="操作"
+              width="90px"
+              align="center"
+            >
+              <template slot-scope="scope">
+                <el-popover
+                  placement="bottom-end"
+                  popper-class="chProo"
+                  trigger="click"
+                >
+                  <el-button slot="reference" size="mini" icon="el-icon-setting">
+                    <i class="fa fa-caret-down" aria-hidden="true" />
+                  </el-button>
+                  <div class="dise">
+                    <div class="edit">
+                      <el-button
+                        :disabled="!checkPer(['admin','gamePackageInfo:add'])"
+                        size="mini"
+                        type="primary"
+                        icon="el-icon-edit"
+                        @click="editInfo(scope.row)"
+                      />
+                    </div>
+                    <div class="edit">
+                      <el-button
+                        :disabled="!checkPer(['admin','gamePackageInfo:del'])"
+                        size="mini"
+                        type="danger"
+                        icon="el-icon-edit"
+                        @click="delInfo(scope.row)"
+                      />
+                    </div>
+                  </div>
+                </el-popover>
+              </template>
+            </el-table-column>
           </el-table>
           <!--分页组件-->
           <pagination />
@@ -110,7 +217,7 @@
 </template>
 
 <script>
-import { crudRefGamePackageInfo } from '@/api/game/gamePackInfo'
+import crudRefGamePackageInfo from '@/api/game/gamePackInfo'
 import gameChannelConfig from './gameChannelConfig'
 import CRUD, { presenter, header, form, crud } from '@crud/crud'
 import rrOperation from '@crud/RR.operation'
@@ -125,7 +232,7 @@ export default {
   cruds() {
     return CRUD({
       title: 'gamePackageInfo',
-      url: '/api/ gamePackageInfo',
+      url: '/api/gamePackageInfo',
       idField: 'id',
       sort: 'id,desc',
       crudMethod: { ...crudRefGamePackageInfo }
@@ -156,15 +263,17 @@ export default {
         oppo: 'oppo'
       },
       curdHook: '',
-      dlogTitle: ''
+      dlogTitle: '',
+      dialogLoading: false
     }
   },
 
   methods: {
     // 钩子：在获取表格数据之前执行，false 则代表不获取数据
     [CRUD.HOOK.beforeRefresh]() {
-      if (this.$refs.dingConfig) {
-        this.$refs.dingConfig.query.packId = ''
+      console.log(this.$refs)
+      if (this.$refs.gameChannelConfig) {
+        this.$refs.gameChannelConfig.query.pack_id = ''
       }
       return true
     },
@@ -175,21 +284,117 @@ export default {
       }
       this.isShowDelg = !this.isShowDelg
       this.curdHook = 'add'
-      this.dlogTitle = `新增${this.crud.query.deptName}-${this.crud.query.userName}配置`
+      this.dlogTitle = `新增配置`
     },
+    editInfo(data) {
+      const deepData = JSON.parse(JSON.stringify(data))
+      console.log(deepData)
+      this.isShowDelg = !this.isShowDelg
+      this.scopeData = deepData
+      this.curdHook = 'edit'
+      this.dlogTitle = `编辑配置`
+    },
+    getServiceValue() {
+      const _this = this
+      switch (this.curdHook) {
+        case 'add':
+          this.scopeData.userId = this.query.userId
+
+          this.fileName = this.fileList[0].name
+          this.fileNamespace = this.fileName.split('.')
+          if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
+            _this.dialogLoading = true
+            crudRefGamePackageInfo.add(_this.scopeData).then(res => {
+              _this.$notify({
+                message: '新增成功',
+                type: 'success'
+              })
+              _this.closeTip()
+              _this.crud.refresh()
+              _this.dialogLoading = false
+            }).catch(err => {
+              _this.$message.error(err)
+            })
+          } else {
+            _this.$notify({
+              message: '请填入必选数据',
+              type: 'error'
+            })
+          }
+          break
+        case 'edit':
+          if (this.getRequestUrls) {
+            this.scopeData.imagePath = this.getRequestUrls
+            if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
+              _this.dialogLoading = true
+              crudRefGamePackageInfo.edit(this.scopeData).then(res => {
+                this.$notify({
+                  message: '编辑成功',
+                  type: 'success'
+                })
+                _this.closeTip()
+                this.crud.refresh()
+                _this.dialogLoading = false
+              }).catch(err => {
+                this.$message.error(err)
+              })
+            } else {
+              _this.$notify({
+                message: '请填入必选数据',
+                type: 'error'
+              })
+            }
+          } else {
+            if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
+              _this.dialogLoading = true
+              crudRefGamePackageInfo.edit(this.scopeData).then(res => {
+                this.$notify({
+                  message: '编辑成功',
+                  type: 'success'
+                })
+                this.isShowDelg = !this.isShowDelg
+                this.crud.refresh()
+                _this.dialogLoading = false
+              }).catch(err => {
+                this.$message.error(err)
+              })
+            } else {
+              _this.$notify({
+                message: '请填入必选数据',
+                type: 'error'
+              })
+            }
+          }
+      }
+    },
+    closeTip() {
+      this.isShowDelg = !this.isShowDelg
+      this.fileList = []
+      this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
+      for (var key in this.scopeData) {
+        this.scopeData[key] = null
+      }
+    },
+    beforClose() {
+      this.isShowDelg = !this.isShowDelg
+      this.fileList = []
+      this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
+      for (var key in this.scopeData) {
+        this.scopeData[key] = null
+      }
+    },
+    dekInfo(data) {},
     handleCurrentChange(val) {
       if (this.checkPer(['admin', 'gameChannelConfig:list'])) {
         if (val) {
           console.log(val)
-          this.$refs.dingConfig.query.packId = val.userId
-          this.$refs.dingConfig.crud.toQuery()
+          this.$refs.gameChannelConfig.query.pack_id = val.id
+          this.$refs.gameChannelConfig.query.game_code = val.game_code
+          this.$refs.gameChannelConfig.crud.toQuery()
         }
       } else {
         this.$message.error('没有权限')
       }
-    },
-    rowEvent(row) {
-      console.log(row)
     }
   }
 }
