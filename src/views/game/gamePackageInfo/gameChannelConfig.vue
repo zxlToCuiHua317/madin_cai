@@ -133,7 +133,7 @@
 </template>
 
 <script>
-import { crudRefGameChannelConfig, add, edit, del } from '@/api/game/gamechanneConfig'
+import crudRefGameChannelConfig from '@/api/game/gamechanneConfig'
 import CRUD, { presenter, header, form, crud } from '@crud/crud'
 import { parseTimes } from '@/utils/index'
 // import rrOperation from '@crud/RR.operation'
@@ -167,8 +167,8 @@ export default {
       disabled: false,
       isDel: false,
       scopeData: {
-        pack_id: this.query.pack_id,
-        game_code: this.query.game_code,
+        pack_id: null,
+        game_code: null,
         channel_type: null,
         channel_fee: null,
         remark: null
@@ -271,113 +271,56 @@ export default {
           }
           this.fileName = this.fileList[0].name
           this.fileNamespace = this.fileName.split('.')
-          // 实例化OSS Client。
-          // object表示上传到OSS的文件名称。
-          // file表示浏览器中需要上传的文件，支持HTML5 file和Blob类型。
-          _this.client.put(this.getuploadPath + this.nowDate + '.' + this.fileNamespace[1], this.fileList[0].raw).then(function(r1) {
-            // 判断是否 上传成功 并且 获取到了 上传访问路径
-            _this.getRequestUrls = r1.url
-
-            if (_this.getRequestUrls) {
-              _this.scopeData.imagePath = _this.getRequestUrls
-              _this.scopeData.status = 0
-              if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
-                _this.scopeData.sendTime = parseTimes(_this.scopeData.sendTime)
-                _this.dialogLoading = true
-                add(_this.scopeData).then(res => {
-                  _this.$notify({
-                    message: '新增成功',
-                    type: 'success'
-                  })
-                  _this.closeTip()
-                  _this.crud.refresh()
-                  _this.dialogLoading = false
-                }).catch(err => {
-                  _this.$message.error(err)
-                })
-              } else {
-                _this.$notify({
-                  message: '请填入必选数据',
-                  type: 'error'
-                })
-              }
-            }
-          }).then(r2 => {
-            console.log(r2)
-          })
-            .catch(function(err) {
+          if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
+            _this.scopeData.sendTime = parseTimes(_this.scopeData.sendTime)
+            _this.dialogLoading = true
+            crudRefGameChannelConfig.add(_this.scopeData).then(res => {
+              _this.$notify({
+                message: '新增成功',
+                type: 'success'
+              })
+              _this.closeTip()
+              _this.crud.refresh()
+              _this.dialogLoading = false
+            }).catch(err => {
               _this.$message.error(err)
             })
+          } else {
+            _this.$notify({
+              message: '请填入必选数据',
+              type: 'error'
+            })
+          }
           break
         case 'edit':
-          if (this.getRequestUrls) {
-            this.scopeData.imagePath = this.getRequestUrls
-            if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
-              _this.dialogLoading = true
-              edit(this.scopeData).then(res => {
-                this.$notify({
-                  message: '编辑成功',
-                  type: 'success'
-                })
-                _this.closeTip()
-                this.crud.refresh()
-                _this.dialogLoading = false
-              }).catch(err => {
-                this.$message.error(err)
+          if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
+            _this.dialogLoading = true
+            crudRefGameChannelConfig.edit(this.scopeData).then(res => {
+              this.$notify({
+                message: '编辑成功',
+                type: 'success'
               })
-            } else {
-              _this.$notify({
-                message: '请填入必选数据',
-                type: 'error'
-              })
-            }
+              _this.closeTip()
+              this.crud.refresh()
+              _this.dialogLoading = false
+            }).catch(err => {
+              this.$message.error(err)
+            })
           } else {
-            if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
-              _this.dialogLoading = true
-              edit(this.scopeData).then(res => {
-                this.$notify({
-                  message: '编辑成功',
-                  type: 'success'
-                })
-                this.isShowDelg = !this.isShowDelg
-                this.crud.refresh()
-                _this.dialogLoading = false
-              }).catch(err => {
-                this.$message.error(err)
-              })
-            } else {
-              _this.$notify({
-                message: '请填入必选数据',
-                type: 'error'
-              })
-            }
+            _this.$notify({
+              message: '请填入必选数据',
+              type: 'error'
+            })
           }
+          break
       }
     },
     delConfig() {
-      del()
+      crudRefGameChannelConfig.del()
     },
     delImgPath() {
       this.curdHook = 'delImg'
       this.scopeData.imagePath = ''
-    },
-    async uploadImg() {
-      const _this = this
-      this.fileName = this.fileList[0].name
-      this.fileNamespace = this.fileName.split('.')
-      await this.client.put(this.getuploadPath + this.nowDate + '.' + this.fileNamespace[1], this.fileList[0]).then(function(r1) {
-        console.log('put success: %j', r1)
-        _this.getRequestUrls = r1.url
-        _this.dialogVisible = true
-        // 判断是否 上传成功 并且 获取到了 上传访问路径
-      }).then(r2 => {
-        console.log(r2)
-      })
-        .catch(function(err) {
-          _this.$message.error(err)
-        })
-
-      return _this.getRequestUrls
     },
     closeTip() {
       this.isShowDelg = !this.isShowDelg
