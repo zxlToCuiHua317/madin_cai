@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <div v-if="query.pack_id === ''">
+    <div v-if="query.packId === ''">
       <div class="my-code">点击游戏包查看详情</div>
     </div>
     <div v-else>
@@ -46,7 +46,8 @@
         >新增</el-button>
 
         <!--如果想在工具栏加入更多按钮，可以使用插槽方式， slot = 'left' or 'right'-->
-        <!-- <crudOperation :permission="permission" /> -->
+        <rrOperation :crud="crud" />
+        <crudOperation :permission="permission" />
         <!-- 表单 -->
         <el-dialog
           :visible.sync="isShowDelg"
@@ -64,15 +65,51 @@
             size="small"
             label-width="120px"
           >
-            <el-form-item label="gameCode">
+            <el-form-item v-if="isShow" label="pickid">
               <el-input
-                v-model="scopeData.title"
+                v-model="scopeData.packId"
                 placeholder="请输入消息标题"
                 style="width: 80%"
                 disabled
               />
             </el-form-item>
-
+            <el-form-item label="gameCode" prop="gameCode">
+              <el-input
+                v-model="scopeData.gameCode"
+                placeholder="请输入gameCode"
+                style="width: 80%"
+                disabled
+              />
+            </el-form-item>
+            <el-form-item label="渠道" prop="channelType">
+              <el-select
+                v-model="scopeData.channelType"
+                clearable
+                size="small"
+                placeholder="渠道类型"
+                class="filter-item"
+                style="width: 150px"
+              >
+                <el-option
+                  v-for="item in channelArr"
+                  :key="item.key"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="渠道费率" prop="channelFee">
+              <el-input-number v-model="scopeData.channelFee" :precision="0" :max="100" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input
+                v-model="scopeData.remark"
+                placeholder="请输入备注"
+                style="width: 80%"
+                type="textarea"
+                :rows="2"
+              />
+            </el-form-item>
           </el-form>
           <div slot="footer" class="dialog-footer">
             <el-button @click="closeTip">取消</el-button>
@@ -106,22 +143,47 @@
             label="序号"
             width="60px"
           />
-          <el-table-column align="center" prop="game_code" label="gameCode" />
-          <el-table-column align="center" prop="channel_type" label="储值渠道" />
-          <el-table-column align="center" prop="channel_fee" label="渠道费率" />
-          <el-table-column align="center" prop="create_time" label="创建时间" />
+          <el-table-column align="center" prop="gameCode" label="gameCode" />
+          <el-table-column align="center" prop="channelType" label="储值渠道" />
+          <el-table-column align="center" prop="channelFee" label="渠道费率" />
+          <el-table-column align="center" prop="createTime" label="创建时间" />
           <el-table-column align="center" prop="remark" label="备注" />
-          <el-table-column label="操作" width="90px" align="center" fixed="right">
+          <el-table-column
+            fixed="right"
+            label="操作"
+            width="90px"
+            align="center"
+          >
             <template slot-scope="scope">
-              <div v-show="scope.row.status !== 1" class="edit">
-                <el-button
-                  size="mini"
-                  type="primary"
-                  :disabled="!checkPer(['admin','gameChannelConfig:edit'])"
-                  icon="el-icon-edit"
-                  @click="editConfig(scope.row)"
-                />
-              </div>
+              <el-popover
+                placement="bottom-end"
+                popper-class="chProo"
+                trigger="click"
+              >
+                <el-button slot="reference" size="mini" icon="el-icon-setting">
+                  <i class="fa fa-caret-down" aria-hidden="true" />
+                </el-button>
+                <div class="dise">
+                  <div class="edit">
+                    <el-button
+                      :disabled="!checkPer(['admin','gamePackageInfo:edit'])"
+                      size="mini"
+                      type="primary"
+                      icon="el-icon-edit"
+                      @click="editConfig(scope.row)"
+                    />
+                  </div>
+                  <div class="edit">
+                    <el-button
+                      :disabled="!checkPer(['admin','gamePackageInfo:del'])"
+                      size="mini"
+                      type="danger"
+                      icon="el-icon-delete"
+                      @click="delConfig(scope.row)"
+                    />
+                  </div>
+                </div>
+              </el-popover>
             </template>
           </el-table-column>
         </el-table>
@@ -135,27 +197,28 @@
 <script>
 import crudRefGameChannelConfig from '@/api/game/gamechanneConfig'
 import CRUD, { presenter, header, form, crud } from '@crud/crud'
-import { parseTimes } from '@/utils/index'
-// import rrOperation from '@crud/RR.operation'
-// import crudOperation from '@crud/CRUD.operation'
+import rrOperation from '@crud/RR.operation'
+import crudOperation from '@crud/CRUD.operation'
 import pagination from '@crud/Pagination'
 
 const defaultForm = {}
 export default {
   name: 'GameChannelConfig',
-  components: { pagination },
+  components: { pagination, rrOperation, crudOperation },
   mixins: [presenter(), header(), form(defaultForm), crud()],
   cruds() {
     return CRUD({
       title: 'GameChannelConfig',
-      url: '/api/dingtalkUserConfig',
+      url: '/api/gameChannelConfig',
       idField: 'id',
       sort: 'id,desc',
-      query: { pack_id: '' },
+      query: { packId: '' },
       crudMethod: { ...crudRefGameChannelConfig },
       queryOnPresenterCreated: false
     })
   },
+  // 数据字典
+  dicts: ['channel_type'],
   data() {
     return {
       isShowDelg: false,
@@ -167,10 +230,10 @@ export default {
       disabled: false,
       isDel: false,
       scopeData: {
-        pack_id: null,
-        game_code: null,
-        channel_type: null,
-        channel_fee: null,
+        packId: null,
+        gameCode: null,
+        channelType: null,
+        channelFee: null,
         remark: null
       },
       permission: {
@@ -179,10 +242,11 @@ export default {
         del: ['admin', 'gameChannelConfig:del']
       },
       rules: {
-        gamecode: [{ required: true, message: '不能为空', trigger: 'blur' }],
-        runstate: [{ required: true, message: '不能为空', trigger: 'blur' }]
+        gameCode: [{ required: true, message: 'gameCode不能为空', trigger: 'blur' }],
+        channelType: [{ required: true, message: '储值渠道不能为空', trigger: 'change' }],
+        channelFee: [{ required: true, message: '渠道费率不能为空', trigger: 'blur' }]
       },
-      channelArr: [{ label: 'Google', value: 'Google' }, { label: 'IOS', value: 'IOS' }, { label: '华为', value: '华为' }, { label: 'OPPO', value: 'OPPO' }],
+      channelArr: null,
       sendArr: [{ label: '未发送', value: 0 }, { label: '已发送', value: 1 }],
       fileList: [],
       fileName: null,
@@ -197,13 +261,16 @@ export default {
     }
   },
   created() {
+    this.channelArr = this.dict.channel_type
   },
   methods: {
     // 钩子：在获取表格数据之前执行，false 则代表不获取数据
     [CRUD.HOOK.beforeRefresh]() {
       return true
     },
-
+    getNumCon(data) {
+      console.log(data)
+    },
     onBeforeUploadImage(file) {
       console.log(file)
     },
@@ -240,13 +307,18 @@ export default {
       this.$message.error('只能上传一个文件哦')
     },
     addConfig() {
+      console.log(this.query)
+      console.log(this.query.gameCode)
+      this.scopeData.gameCode = this.query.gameCode
       const deepData = JSON.parse(JSON.stringify(this.scopeData))
       for (var key in deepData) {
         deepData[key] = null
       }
+      deepData.gameCode = this.query.gameCode
+      this.scopeData.deepData
       this.isShowDelg = !this.isShowDelg
       this.curdHook = 'add'
-      this.dlogTitle = `新增${this.crud.query.deptName}-${this.crud.query.userName}配置`
+      this.dlogTitle = `新增配置`
     },
     editConfig(data) {
       const deepData = JSON.parse(JSON.stringify(data))
@@ -254,69 +326,54 @@ export default {
       this.isShowDelg = !this.isShowDelg
       this.scopeData = deepData
       this.curdHook = 'edit'
-      this.dlogTitle = `编辑${this.crud.query.deptName}-${this.crud.query.userName}配置`
-      this.fileList = [{ url: deepData.imagePath }]
+      this.dlogTitle = `编辑配置`
     },
     getServiceValue() {
       const _this = this
-      switch (this.curdHook) {
-        case 'add':
-          this.scopeData.userId = this.query.userId
-          if (this.fileList.length === 0) {
-            _this.$notify({
-              message: '请先选择图片后在提交',
-              type: 'error'
-            })
-            return
-          }
-          this.fileName = this.fileList[0].name
-          this.fileNamespace = this.fileName.split('.')
-          if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
-            _this.scopeData.sendTime = parseTimes(_this.scopeData.sendTime)
-            _this.dialogLoading = true
-            crudRefGameChannelConfig.add(_this.scopeData).then(res => {
-              _this.$notify({
-                message: '新增成功',
-                type: 'success'
+      console.log(this.query)
+      this.scopeData.packId = this.query.packId
+      this.$refs['form'].validate((valid) => {
+        if (valid) {
+          switch (this.curdHook) {
+            case 'add':
+              _this.dialogLoading = true
+              crudRefGameChannelConfig.add(_this.scopeData).then(res => {
+                _this.$notify({
+                  message: '新增成功',
+                  type: 'success'
+                })
+                _this.closeTip()
+                _this.crud.refresh()
+                _this.dialogLoading = false
               })
-              _this.closeTip()
-              _this.crud.refresh()
-              _this.dialogLoading = false
-            }).catch(err => {
-              _this.$message.error(err)
-            })
-          } else {
-            _this.$notify({
-              message: '请填入必选数据',
-              type: 'error'
-            })
-          }
-          break
-        case 'edit':
-          if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
-            _this.dialogLoading = true
-            crudRefGameChannelConfig.edit(this.scopeData).then(res => {
-              this.$notify({
-                message: '编辑成功',
-                type: 'success'
+              break
+            case 'edit':
+              _this.dialogLoading = true
+              crudRefGameChannelConfig.edit(this.scopeData).then(res => {
+                this.$notify({
+                  message: '编辑成功',
+                  type: 'success'
+                })
+                _this.closeTip()
+                this.crud.refresh()
+                _this.dialogLoading = false
               })
-              _this.closeTip()
-              this.crud.refresh()
-              _this.dialogLoading = false
-            }).catch(err => {
-              this.$message.error(err)
-            })
-          } else {
-            _this.$notify({
-              message: '请填入必选数据',
-              type: 'error'
-            })
           }
-          break
-      }
+        } else {
+          return false
+        }
+      })
     },
-    delConfig() {
-      crudRefGameChannelConfig.del()
+    delConfig(data) {
+      const ids = []
+      ids.push(data.id)
+      crudRefGameChannelConfig.del(ids).then(res => {
+        this.$notify({
+          message: '删除成功',
+          type: 'success'
+        })
+        this.crud.refresh()
+      })
     },
     delImgPath() {
       this.curdHook = 'delImg'
@@ -324,22 +381,22 @@ export default {
     },
     closeTip() {
       this.isShowDelg = !this.isShowDelg
+      this.dialogLoading = false
       this.fileList = []
+      this.$refs['form'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       for (var key in this.scopeData) {
-        if (key === 'content') { this.scopeData[key] = '' } else {
-          this.scopeData[key] = null
-        }
+        this.scopeData[key] = null
       }
     },
     beforClose() {
       this.isShowDelg = !this.isShowDelg
+      this.dialogLoading = false
       this.fileList = []
+      this.$refs['form'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       for (var key in this.scopeData) {
-        if (key === 'content') { this.scopeData[key] = '' } else {
-          this.scopeData[key] = null
-        }
+        this.scopeData[key] = null
       }
     }
   }
@@ -367,28 +424,8 @@ export default {
 }
 </style>
 <style rel="stylesheet/scss" lang="scss" scoped >
-::v-deep .ql-editor{
-    -webkit-box-sizing: border-box;
-    box-sizing: border-box;
-    /* line-height: 1.42; */
-    height: 300px;
-    outline: none;
-    overflow-y: auto;
-    padding: 12px 15px;
-    -o-tab-size: 4;
-    tab-size: 4;
-    -moz-tab-size: 4;
-    text-align: left;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
 ::v-deep .crud-opts-left {
   display: none;
-}
-::v-deep .el-upload-list__item-thumbnail{
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
 }
 ::v-deep .el-upload-dragger {
       background-color: #fff;
@@ -406,11 +443,12 @@ export default {
 .dise {
   display: flex;
   flex-direction: column;
+  align-items: center;
   .edit {
-    margin-bottom: 10px;
+    margin-bottom: 5px;
   }
   .del {
-    margin-bottom: 10px;
+    margin-bottom: 5px;
   }
 }
 
@@ -436,13 +474,13 @@ export default {
         }
       }
     }
-    .el-dialog__body {
+.el-dialog__body {
       padding: 0 1px;
       color: #606266;
       font-size: 14px;
       word-break: break-all;
       .el-form-item {
-        margin-bottom: 5px;
+        margin-bottom: 0;
         border-bottom: 1px solid #ccc;
         padding: 5px 0;
         .el-form-item__content {
@@ -451,6 +489,7 @@ export default {
           font-size: 14px;
           border-left: 1px solid #ccc;
           padding: 0 10px;
+          margin-bottom: 10px;
         }
       }
     }
@@ -464,7 +503,4 @@ export default {
     }
   }
 }
- ::v-deep .el-input-number .el-input__inner {
-    text-align: left;
-  }
 </style>

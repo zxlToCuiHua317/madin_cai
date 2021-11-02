@@ -78,13 +78,13 @@
         :close-on-click-modal="false"
       >
         <el-form
-          ref="form"
+          ref="scopeData"
           :model="scopeData"
           :rules="rules"
           size="small"
           label-width="150px"
         >
-          <el-form-item label="数据渠道">
+          <el-form-item label="数据渠道" prop="type">
             <el-select
               v-model="scopeData.type"
               clearable
@@ -103,7 +103,7 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item label="上传时间">
+          <el-form-item label="渠道月份" prop="uploadTime">
             <el-date-picker
               v-model="scopeData.uploadTime"
               type="month"
@@ -117,7 +117,7 @@
               />
             </el-date-picker>
           </el-form-item>
-          <el-form-item label="文件上传">
+          <el-form-item label="文件上传" prop="uploadFile">
             <el-upload
               ref="upload"
               :limit="1"
@@ -130,6 +130,7 @@
               :on-change="fileChange"
               :file-list="fileList"
               :on-exceed="maxFileNum"
+              :on-remove="removeImg"
             >
               <i class="el-icon-upload" />
             </el-upload>
@@ -172,14 +173,16 @@
         />
         <el-table-column align="center" prop="index" label="序号" width="60" />
         <el-table-column align="center" prop="type" label="数据渠道" />
-        <el-table-column align="center" prop="uploadTime" label="上传时间" width="180" />
+        <el-table-column align="center" prop="uploadTime" label="渠道月份" width="180" />
         <el-table-column align="center" prop="filename" label="上传文件名" />
+        <el-table-column align="center" prop="createTime" label="上传时间" />
         <el-table-column align="center" prop="status" label="状态">
           <template slot-scope="scope">
             <div>{{ getStatus[scope.row.status] }}</div>
           </template>
         </el-table-column>
         <el-table-column align="center" prop="remark" label="备注" />
+        <el-table-column align="center" prop="updateTime" label="处理时间" />
         <el-table-column align="center" prop="errMsg" label="错误信息">
           <template slot-scope="scope">
             <el-popover v-if="scope.row.errMsg" placement="top" title="消息内容" width="300" trigger="hover">
@@ -223,6 +226,7 @@ export default {
       crudMethod: { ...crudUploadFile }
     })
   },
+  dicts: ['channel_type'],
   data() {
     return {
       isShowDelg: false,
@@ -242,21 +246,16 @@ export default {
         del: ['admin', 'channelUploadRecord:del']
       },
       rules: {
-        gamecode: [{ required: true, message: '不能为空', trigger: 'blur' }],
-        runstate: [{ required: true, message: '不能为空', trigger: 'blur' }]
+        type: [{ required: true, message: '渠道不能为空', trigger: 'change' }],
+        uploadTime: [{ required: true, message: '渠道月份不能为空', trigger: 'change' }],
+        uploadFile: [{ required: true, message: '上传文件不能为空', trigger: 'change' }]
       },
       statusArr: [
         { label: '等待处理', value: 0 },
         { label: '处理成功', value: 1 },
         { label: '处理失败', value: 2 }
       ],
-      channelData: [
-        { label: 'huawei', value: 'huawei' },
-        { label: 'paypal', value: 'paypal' },
-        { label: 'payermax', value: 'payermax' },
-        { label: 'paymentwall', value: 'paymentwall' },
-        { label: 'stripe', value: 'stripe' }
-      ],
+      channelData: null,
       curdHook: '',
       logo: null,
       client: null,
@@ -271,6 +270,7 @@ export default {
     }
   },
   created() {
+    this.channelData = this.dict.channel_type
   },
   methods: {
     // 钩子：在获取表格数据之前执行，false 则代表不获取数据
@@ -281,12 +281,25 @@ export default {
     onBeforeUploadImage(file) {
       console.log(file)
     },
-
+    removeImg(file, fileList) {
+      console.log(fileList)
+      if (fileList.length === 0) {
+        this.rules.uploadFile = [{ required: true, message: '上传文件不能为空', trigger: 'change' }]
+        this.$refs['scopeData'].clearValidate('uploadFile')
+      }
+      this.fileList = []
+    },
     UploadImage() {
     },
     fileChange(file) {
       this.logo = file.raw // 取出上传文件的对象，在其它地方也可以使用
       this.fileList.push(this.logo)
+      if (this.fileList.length === 1) {
+        // eslint-disable-next-line no-unused-vars
+        var { uploadFile, ...data } = this.rules
+        this.rules = data
+      }
+      this.$refs['scopeData'].clearValidate('uploadFile')
     },
     maxFileNum() {
       this.$message.error('只能上传一个文件哦')
@@ -343,44 +356,48 @@ export default {
       }
     },
     getServiceValue() {
-      switch (this.curdHook) {
-        case 'add':
-          this.isLoading = true
-          console.log(this.fileList)
-          //   this.fileName = this.fileList[0].name
-          //   this.fileNamespace = this.fileName.split('.')
-          this.renderFile.read
-          this.formData.append('uploadFile', this.fileList[0])
-          this.scopeData.uploadFile = this.formData
+      this.$refs['scopeData'].validate((valid) => {
+        if (valid) {
+          switch (this.curdHook) {
+            case 'add':
+              this.isLoading = true
+              this.renderFile.read
+              this.formData.append('uploadFile', this.fileList[0])
+              this.scopeData.uploadFile = this.formData
 
-          if (this.scopeData.type && this.scopeData.uploadFile && this.scopeData.uploadTime && this.scopeData.remark) {
-            this.formData.append('type', this.scopeData.type)
-            this.formData.append('uploadTime', this.scopeData.uploadTime)
-            this.formData.append('remark', this.scopeData.remark)
-            crudUploadFile.add(this.formData).then(res => {
-              this.isLoading = false
-              this.$notify({
-                message: '新增成功',
-                type: 'success'
-              })
-              this.closeTip()
-              this.crud.refresh()
-            }).catch(err => {
-              this.$message.error(err)
-            })
-          } else {
-            this.isLoading = false
-            this.$notify({
-              message: '请填入必填参数',
-              type: 'warning'
-            })
+              if (this.scopeData.type && this.scopeData.uploadFile && this.scopeData.uploadTime && this.scopeData.remark) {
+                this.formData.append('type', this.scopeData.type)
+                this.formData.append('uploadTime', this.scopeData.uploadTime)
+                this.formData.append('remark', this.scopeData.remark)
+                crudUploadFile.add(this.formData).then(res => {
+                  this.isLoading = false
+                  this.$notify({
+                    message: '新增成功',
+                    type: 'success'
+                  })
+                  this.closeTip()
+                  this.crud.refresh()
+                }).catch(err => {
+                  this.$message.error(err)
+                })
+              } else {
+                this.isLoading = false
+                this.$notify({
+                  message: '请填入必填参数',
+                  type: 'warning'
+                })
+              }
+
+              break
           }
-
-          break
-      }
+        } else {
+          return false
+        }
+      })
     },
     closeTip() {
       this.isShowDelg = !this.isShowDelg
+      this.$refs['scopeData'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       this.fileList = []
       for (var key in this.scopeData) {
@@ -389,6 +406,7 @@ export default {
     },
     beforClose() {
       this.isShowDelg = !this.isShowDelg
+      this.$refs['scopeData'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       this.fileList = []
       for (var key in this.scopeData) {
@@ -496,7 +514,7 @@ export default {
       font-size: 14px;
       word-break: break-all;
       .el-form-item {
-        margin-bottom: 5px;
+        margin-bottom: 0;
         border-bottom: 1px solid #ccc;
         padding: 5px 0;
         .el-form-item__content {
@@ -505,6 +523,7 @@ export default {
           font-size: 14px;
           border-left: 1px solid #ccc;
           padding: 0 10px;
+          margin-bottom: 10px;
         }
       }
     }

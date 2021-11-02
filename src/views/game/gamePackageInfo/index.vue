@@ -43,18 +43,19 @@
                 end-placeholder="结束日期"
               />
             </div>
+            <el-button
+              v-if="crud.optShow.add"
+              :disabled="!checkPer(['admin','gamePackageInfo:add'])"
+              class="filter-item "
+              size="mini"
+              type="primary"
+              icon="el-icon-plus"
+              @click="addConfig()"
+            >新增</el-button>
             <rrOperation :crud="crud" />
             <crudOperation :permission="permission" />
           </div>
-          <el-button
-            v-if="crud.optShow.add"
-            :disabled="!checkPer(['admin','gamePackageInfo:add'])"
-            class="filter-item "
-            size="mini"
-            type="primary"
-            icon="el-icon-plus"
-            @click="addConfig()"
-          >新增</el-button>
+
           <el-dialog
             :visible.sync="isShowDelg"
             width="750px"
@@ -64,31 +65,31 @@
             :close-on-click-modal="false"
           >
             <el-form
-              ref="form"
+              ref="scopeData"
               :model="scopeData"
               :rules="rules"
               size="small"
               label-width="120px"
             >
-              <el-form-item label="gameCode">
-                <el-input v-model="scopeData.game_code" placeholder="请输入gameCode" style="width: 80%;" />
+              <el-form-item label="gameCode" prop="game_code">
+                <el-input v-model="scopeData.gameCode" placeholder="请输入gameCode" style="width: 80%;" />
               </el-form-item>
-              <el-form-item label="游戏名">
-                <el-input v-model="scopeData.game_name" placeholder="请输入游戏名" style="width: 80%;" />
+              <el-form-item label="游戏名" prop="game_name">
+                <el-input v-model="scopeData.gameName" placeholder="请输入游戏名" style="width: 80%;" />
               </el-form-item>
-              <el-form-item label="上线时间">
+              <el-form-item label="上线时间" prop="online_time">
                 <el-date-picker
-                  v-model="scopeData.online_time"
+                  v-model="scopeData.onlineTime"
                   type="date"
                   placeholder="选择日期"
                 />
               </el-form-item>
-              <el-form-item label="游戏包名">
-                <el-input v-model="scopeData.package_name" placeholder="请输入游戏包名" style="width: 80%;" />
+              <el-form-item label="游戏包名" prop="package_name">
+                <el-input v-model="scopeData.packageName" placeholder="请输入游戏包名" style="width: 80%;" />
               </el-form-item>
-              <el-form-item label="渠道">
+              <el-form-item label="渠道" prop="channel_type">
                 <el-select
-                  v-model="scopeData.channel_type"
+                  v-model="scopeData.channelType"
                   clearable
                   size="small"
                   placeholder="渠道类型"
@@ -103,8 +104,8 @@
                   />
                 </el-select>
               </el-form-item>
-              <el-form-item label="账号">
-                <el-input v-model="scopeData.account_num" placeholder="请输入账号" style="width: 80%;" />
+              <el-form-item label="账号" prop="account_num">
+                <el-input v-model="scopeData.accountNum" placeholder="请输入账号" style="width: 80%;" />
               </el-form-item>
               <el-form-item label="备注">
                 <el-input
@@ -150,15 +151,15 @@
               label="序号"
               width="60px"
             />
-            <el-table-column align="center" prop="game_name" label="游戏名" />
-            <el-table-column align="center" prop="online_time" label="上线时间" width="180" />
-            <el-table-column align="center" prop="package_name" label="游戏包名" />
-            <el-table-column align="center" prop="channel_type" label="渠道">
+            <el-table-column align="center" prop="gameName" label="游戏名" />
+            <el-table-column align="center" prop="onlineTime" label="上线时间" width="150">
               <template slot-scope="scope">
-                {{ channel_type[scope.row.channel_type] }}
+                {{ scope.row.onlineTime | dataFormat("1") }}
               </template>
             </el-table-column>
-            <el-table-column align="center" prop="account_num" label="账号" />
+            <el-table-column align="center" prop="packageName" label="游戏包名" />
+            <el-table-column align="center" prop="channelType" label="渠道" />
+            <el-table-column align="center" prop="accountNum" label="账号" />
             <el-table-column align="center" prop="remark" label="备注" />
             <el-table-column
               fixed="right"
@@ -178,19 +179,21 @@
                   <div class="dise">
                     <div class="edit">
                       <el-button
-                        :disabled="!checkPer(['admin','gamePackageInfo:add'])"
+                        :disabled="!checkPer(['admin','gamePackageInfo:edit'])"
                         size="mini"
                         type="primary"
                         icon="el-icon-edit"
+                        :loading="dialogLoading"
                         @click="editInfo(scope.row)"
                       />
                     </div>
-                    <div class="edit">
+                    <div class="del">
                       <el-button
                         :disabled="!checkPer(['admin','gamePackageInfo:del'])"
                         size="mini"
                         type="danger"
-                        icon="el-icon-edit"
+                        icon="el-icon-delete"
+                        :loading="dialogLoading"
                         @click="delInfo(scope.row)"
                       />
                     </div>
@@ -223,7 +226,6 @@ import CRUD, { presenter, header, form, crud } from '@crud/crud'
 import rrOperation from '@crud/RR.operation'
 import crudOperation from '@crud/CRUD.operation'
 import pagination from '@crud/Pagination'
-
 const defaultForm = {}
 export default {
   name: 'GamePackageInfo',
@@ -238,6 +240,8 @@ export default {
       crudMethod: { ...crudRefGamePackageInfo }
     })
   },
+  // 数据字典
+  dicts: ['game_pack_channel'],
   data() {
     return {
       isShowDelg: false,
@@ -252,22 +256,33 @@ export default {
         list: ['admin', 'gameChannelConfig:list']
       },
       rules: {
-        gamecode: [{ required: true, message: '不能为空', trigger: 'blur' }],
-        runstate: [{ required: true, message: '不能为空', trigger: 'blur' }]
+        gameCode: [{ required: true, message: 'gameCode不能为空', trigger: 'blur' }],
+        gameName: [{ required: true, message: '游戏名不能为空', trigger: 'blur' }],
+        onlineTime: [{ required: true, message: '上线时间不能为空', trigger: 'change' }],
+        packageName: [{ required: true, message: '游戏包名不能为空', trigger: 'blur' }],
+        channelType: [{ required: true, message: '渠道不能为空', trigger: 'change' }],
+        accountNum: [{ required: true, message: '账号不能为空', trigger: 'blur' }]
       },
-      channelArr: [{ label: 'Google', value: 'Google' }, { label: 'IOS', value: 'IOS' }, { label: '华为', value: '华为' }, { label: 'OPPO', value: 'OPPO' }],
-      channel_type: {
-        Google: 'Google',
-        IOS: 'IOS',
-        huawei: '华为',
-        oppo: 'oppo'
-      },
+      channelArr: null,
+      channel_type: null,
       curdHook: '',
       dlogTitle: '',
-      dialogLoading: false
+      dialogLoading: false,
+      pop: false
     }
   },
-
+  // eslint-disable-next-line vue/order-in-components
+  filters: {
+    dataFormat: (msg) => {
+      const newDate = /\d{4}-\d{1,2}-\d{1,2}/g.exec(msg)
+      return newDate[0]
+    }
+  },
+  created() {
+    console.log(this.dict)
+    this.channelArr = this.dict.game_pack_channel
+    this.channel_type = this.dict.label.game_pack_channel
+  },
   methods: {
     // 钩子：在获取表格数据之前执行，false 则代表不获取数据
     [CRUD.HOOK.beforeRefresh]() {
@@ -278,6 +293,7 @@ export default {
       return true
     },
     addConfig() {
+      console.log(this.dict)
       const deepData = JSON.parse(JSON.stringify(this.scopeData))
       for (var key in deepData) {
         deepData[key] = null
@@ -296,36 +312,26 @@ export default {
     },
     getServiceValue() {
       const _this = this
-      switch (this.curdHook) {
-        case 'add':
-          this.scopeData.userId = this.query.userId
-
-          this.fileName = this.fileList[0].name
-          this.fileNamespace = this.fileName.split('.')
-          if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
-            _this.dialogLoading = true
-            crudRefGamePackageInfo.add(_this.scopeData).then(res => {
-              _this.$notify({
-                message: '新增成功',
-                type: 'success'
+      console.log(this.$refs['scopeData'])
+      this.$refs['scopeData'].validate((valid) => {
+        if (valid) {
+          switch (this.curdHook) {
+            case 'add':
+              _this.dialogLoading = true
+              crudRefGamePackageInfo.add(_this.scopeData).then(res => {
+                _this.$notify({
+                  message: '新增成功',
+                  type: 'success'
+                })
+                _this.closeTip()
+                _this.crud.refresh()
+                _this.dialogLoading = false
+              }).catch(err => {
+                _this.$message.error(err)
               })
-              _this.closeTip()
-              _this.crud.refresh()
-              _this.dialogLoading = false
-            }).catch(err => {
-              _this.$message.error(err)
-            })
-          } else {
-            _this.$notify({
-              message: '请填入必选数据',
-              type: 'error'
-            })
-          }
-          break
-        case 'edit':
-          if (this.getRequestUrls) {
-            this.scopeData.imagePath = this.getRequestUrls
-            if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
+
+              break
+            case 'edit':
               _this.dialogLoading = true
               crudRefGamePackageInfo.edit(this.scopeData).then(res => {
                 this.$notify({
@@ -338,38 +344,16 @@ export default {
               }).catch(err => {
                 this.$message.error(err)
               })
-            } else {
-              _this.$notify({
-                message: '请填入必选数据',
-                type: 'error'
-              })
-            }
-          } else {
-            if (_this.scopeData.content && _this.scopeData.sendTime && _this.scopeData.imagePath && _this.scopeData.title) {
-              _this.dialogLoading = true
-              crudRefGamePackageInfo.edit(this.scopeData).then(res => {
-                this.$notify({
-                  message: '编辑成功',
-                  type: 'success'
-                })
-                this.isShowDelg = !this.isShowDelg
-                this.crud.refresh()
-                _this.dialogLoading = false
-              }).catch(err => {
-                this.$message.error(err)
-              })
-            } else {
-              _this.$notify({
-                message: '请填入必选数据',
-                type: 'error'
-              })
-            }
           }
-      }
+        } else {
+          return false
+        }
+      })
     },
     closeTip() {
       this.isShowDelg = !this.isShowDelg
       this.fileList = []
+      this.$refs['scopeData'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       for (var key in this.scopeData) {
         this.scopeData[key] = null
@@ -378,18 +362,39 @@ export default {
     beforClose() {
       this.isShowDelg = !this.isShowDelg
       this.fileList = []
+      this.$refs['scopeData'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       for (var key in this.scopeData) {
         this.scopeData[key] = null
       }
     },
-    dekInfo(data) {},
+    delInfo(data) {
+      this.$confirm(`确认删除选中的数据?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.dialogLoading = true
+        const ids = []
+        ids.push(data.id)
+        crudRefGamePackageInfo.del(ids).then(res => {
+          this.dialogLoading = false
+          this.$refs.gameChannelConfig.query.packId = ''
+          this.$notify({
+            message: '删除成功',
+            type: 'success'
+          })
+          this.crud.refresh()
+        })
+      }).catch(() => {
+      })
+    },
     handleCurrentChange(val) {
       if (this.checkPer(['admin', 'gameChannelConfig:list'])) {
         if (val) {
           console.log(val)
-          this.$refs.gameChannelConfig.query.pack_id = val.id
-          this.$refs.gameChannelConfig.query.game_code = val.game_code
+          this.$refs.gameChannelConfig.query.packId = val.id
+          this.$refs.gameChannelConfig.query.gameCode = val.gameCode
           this.$refs.gameChannelConfig.crud.toQuery()
         }
       } else {
@@ -440,11 +445,12 @@ export default {
 .dise {
   display: flex;
   flex-direction: column;
+  align-items: center;
   .edit {
-    margin-bottom: 10px;
+    margin-bottom: 5px;
   }
   .del {
-    margin-bottom: 10px;
+    margin-bottom: 5px;
   }
 }
 
@@ -470,13 +476,13 @@ export default {
         }
       }
     }
-    .el-dialog__body {
+.el-dialog__body {
       padding: 0 1px;
       color: #606266;
       font-size: 14px;
       word-break: break-all;
       .el-form-item {
-        margin-bottom: 5px;
+        margin-bottom: 0;
         border-bottom: 1px solid #ccc;
         padding: 5px 0;
         .el-form-item__content {
@@ -485,6 +491,7 @@ export default {
           font-size: 14px;
           border-left: 1px solid #ccc;
           padding: 0 10px;
+          margin-bottom: 10px;
         }
       }
     }
