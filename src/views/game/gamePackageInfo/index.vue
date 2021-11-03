@@ -71,23 +71,23 @@
               size="small"
               label-width="120px"
             >
-              <el-form-item label="gameCode" prop="game_code">
+              <el-form-item label="gameCode" prop="gameCode">
                 <el-input v-model="scopeData.gameCode" placeholder="请输入gameCode" style="width: 80%;" />
               </el-form-item>
-              <el-form-item label="游戏名" prop="game_name">
+              <el-form-item label="游戏名" prop="gameName">
                 <el-input v-model="scopeData.gameName" placeholder="请输入游戏名" style="width: 80%;" />
               </el-form-item>
-              <el-form-item label="上线时间" prop="online_time">
+              <el-form-item label="上线时间" prop="onlineTime">
                 <el-date-picker
                   v-model="scopeData.onlineTime"
                   type="date"
                   placeholder="选择日期"
                 />
               </el-form-item>
-              <el-form-item label="游戏包名" prop="package_name">
+              <el-form-item label="游戏包名" prop="packageName">
                 <el-input v-model="scopeData.packageName" placeholder="请输入游戏包名" style="width: 80%;" />
               </el-form-item>
-              <el-form-item label="渠道" prop="channel_type">
+              <el-form-item label="渠道" prop="channelType">
                 <el-select
                   v-model="scopeData.channelType"
                   clearable
@@ -104,7 +104,7 @@
                   />
                 </el-select>
               </el-form-item>
-              <el-form-item label="账号" prop="account_num">
+              <el-form-item label="账号" prop="accountNum">
                 <el-input v-model="scopeData.accountNum" placeholder="请输入账号" style="width: 80%;" />
               </el-form-item>
               <el-form-item label="备注">
@@ -247,7 +247,7 @@ export default {
       isShowDelg: false,
       isShow: false,
       scopeData: {
-        game_code: null, game_name: null, online_time: null, package_name: null, channel_type: null, account_num: null, remark: null
+        gameCode: null, gameName: null, onlineTime: null, packageName: null, channelType: null, accountNum: null, remark: null
       },
       permission: {
         add: ['admin', 'gamePackageInfo:add'],

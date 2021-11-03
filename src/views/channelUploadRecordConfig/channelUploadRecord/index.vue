@@ -365,10 +365,9 @@ export default {
               this.formData.append('uploadFile', this.fileList[0])
               this.scopeData.uploadFile = this.formData
 
-              if (this.scopeData.type && this.scopeData.uploadFile && this.scopeData.uploadTime && this.scopeData.remark) {
+              if (this.scopeData.type && this.scopeData.uploadFile && this.scopeData.uploadTime) {
                 this.formData.append('type', this.scopeData.type)
                 this.formData.append('uploadTime', this.scopeData.uploadTime)
-                this.formData.append('remark', this.scopeData.remark)
                 crudUploadFile.add(this.formData).then(res => {
                   this.isLoading = false
                   this.$notify({
@@ -377,7 +376,10 @@ export default {
                   })
                   this.closeTip()
                   this.crud.refresh()
+                  this.formData = new FormData()
+                  this.fileList = []
                 }).catch(err => {
+                  this.isLoading = false
                   this.$message.error(err)
                 })
               } else {
@@ -400,6 +402,7 @@ export default {
       this.$refs['scopeData'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       this.fileList = []
+      this.isLoading = false
       for (var key in this.scopeData) {
         this.scopeData[key] = null
       }
@@ -409,6 +412,7 @@ export default {
       this.$refs['scopeData'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       this.fileList = []
+      this.isLoading = false
       for (var key in this.scopeData) {
         this.scopeData[key] = null
       }

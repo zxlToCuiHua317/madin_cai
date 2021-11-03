@@ -219,6 +219,9 @@ export default {
       return true
     },
     sortData(data) {
+      if (data.order === null) {
+        data.order = 'descending'
+      }
       this.crud.loading = true
       this.sortProp = data.prop
       this.sortType = this.type[data.order]

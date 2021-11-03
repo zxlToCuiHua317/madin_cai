@@ -138,7 +138,7 @@
         </div>
       </el-dialog>
       <!--表格渲染-->
-      <el-table ref="table" v-loading="crud.loading" border :data="crud.data" size="small" style="width: 100%;" @selection-change="crud.selectionChangeHandler">
+      <el-table ref="table" v-loading="crud.loading" border :data="crud.data" size="small" style="width: 100%;" @sort-change="sortData" @selection-change="crud.selectionChangeHandler">
         <el-table-column prop="uploadTime" label="渠道月份" />
         <el-table-column prop="dataStatus" label="数据状态">
           <template slot-scope="scope">
@@ -240,6 +240,9 @@ export default {
       return true
     },
     sortData(data) {
+      if (data.order === null) {
+        data.order = 'descending'
+      }
       this.crud.loading = true
       this.sortProp = data.prop
       this.sortType = this.type[data.order]
