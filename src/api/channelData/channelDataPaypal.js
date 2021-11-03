@@ -30,7 +30,8 @@ export function sortData(data) {
     params: {
       page: data.page,
       size: data.size,
-      sort: data.sort
+      sort: data.sort,
+      ...data
     }
   })
 }

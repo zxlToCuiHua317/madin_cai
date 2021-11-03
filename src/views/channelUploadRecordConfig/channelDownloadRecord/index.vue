@@ -303,11 +303,19 @@ export default {
       this.isChannel = false
       this.isGame = false
       this.isShowDlog = !this.isShowDlog
+      this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
+      for (var key in this.scopeData) {
+        this.scopeData[key] = null
+      }
     },
     logClose() {
       this.isChannel = false
       this.isGame = false
       this.isShowDlog = !this.isShowDlog
+      this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
+      for (var key in this.scopeData) {
+        this.scopeData[key] = null
+      }
     },
     getModule(data) {
       switch (data) {
