@@ -154,6 +154,53 @@
           >确认</el-button>
         </div>
       </el-dialog>
+      <!--导出表单组件-->
+      <el-dialog :close-on-click-modal="false" :before-close="exbeforClose" :visible.sync="isShowDlogEx" :title="dlogTitle" width="500px">
+        <el-form ref="exportscopeData" :model="exportscopeData" :rules="exportRules" size="small" label-width="80px">
+          <el-form-item label="渠道" prop="criteria">
+            <el-select
+              v-model="exportscopeData.criteria"
+              clearable
+              size="small"
+              placeholder="渠道"
+              class="filter-item"
+              style="width: 150px"
+            >
+              <el-option
+                v-for="item in channelData"
+                :key="item.key"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="导出范围" prop="uploadTime">
+            <el-date-picker
+              v-model="exportscopeData.uploadTime"
+              type="monthrange"
+              align="right"
+              unlink-panels
+              range-separator=":"
+              start-placeholder="开始月份"
+              end-placeholder="结束月份"
+              :picker-options="pickerOptions"
+            />
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input
+              v-model="exportscopeData.remark"
+              type="textarea"
+              :rows="2"
+              style="width: 370px;"
+            />
+          </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+          <el-button type="text" @click="logClose">取消</el-button>
+          <el-button :loading="crud.status.cu === 2" type="primary" @click="sendDataForSer">确认</el-button>
+        </div>
+      </el-dialog>
       <!--表格渲染-->
       <el-table
         ref="table"
@@ -178,7 +225,7 @@
         <el-table-column align="center" prop="createTime" label="上传时间" />
         <el-table-column align="center" prop="status" label="状态">
           <template slot-scope="scope">
-            <div>{{ getStatus[scope.row.status] }}</div>
+            <div>{{ dict.label.upload_status[scope.row.status] }}</div>
           </template>
         </el-table-column>
         <el-table-column align="center" prop="remark" label="备注" />
@@ -200,9 +247,9 @@
 
 <script>
 import crudUploadFile from '@/api/channelUploadRecordConfig/channelUploadRecord'
+import crudChannelDownloadRecord from '@/api/channelDownload/channelDownloadRecord'
 import CRUD, { presenter, header, form, crud } from '@crud/crud'
-import { download } from '@/api/data'
-import { downloadFile } from '@/utils/index'
+import { parseTimeToMol } from '@/utils/index'
 import rrOperation from '@crud/RR.operation'
 import crudOperation from '@crud/CRUD.operation'
 import pagination from '@crud/Pagination'
@@ -226,10 +273,11 @@ export default {
       crudMethod: { ...crudUploadFile }
     })
   },
-  dicts: ['channel_type'],
+  dicts: ['channel_type', 'upload_status'],
   data() {
     return {
       isShowDelg: false,
+      isShowDlogEx: false,
       isShow: false,
       scopeData: {
         type: null,
@@ -237,6 +285,7 @@ export default {
         uploadFile: null,
         remark: null
       },
+      exportscopeData: { criteria: null, uploadTime: null, remark: null },
       getStatus: ['等待处理', '处理成功', '处理失败'],
       channelArr: [],
       fileList: [],
@@ -250,11 +299,17 @@ export default {
         uploadTime: [{ required: true, message: '渠道月份不能为空', trigger: 'change' }],
         uploadFile: [{ required: true, message: '上传文件不能为空', trigger: 'change' }]
       },
-      statusArr: [
-        { label: '等待处理', value: 0 },
-        { label: '处理成功', value: 1 },
-        { label: '处理失败', value: 2 }
-      ],
+      exportRules: {
+
+        uploadTime: [
+          { required: true, message: '导出范围不能为空', trigger: 'change' }
+        ],
+
+        criteria: [
+          { required: true, message: '渠道不能为空', trigger: 'change' }
+        ]
+      },
+      statusArr: null,
       channelData: null,
       curdHook: '',
       logo: null,
@@ -266,11 +321,36 @@ export default {
       fileNamespace: null,
       isLoading: false,
       formData: new FormData(),
-      renderFile: new FileReader()
+      renderFile: new FileReader(),
+      dlogTitle: null,
+      pickerOptions: {
+        shortcuts: [{
+          text: '本月',
+          onClick(picker) {
+            picker.$emit('pick', [new Date(), new Date()])
+          }
+        }, {
+          text: '今年至今',
+          onClick(picker) {
+            const end = new Date()
+            const start = new Date(new Date().getFullYear(), 0)
+            picker.$emit('pick', [start, end])
+          }
+        }, {
+          text: '最近三个月',
+          onClick(picker) {
+            const end = new Date()
+            const start = new Date()
+            start.setMonth(start.getMonth() - 3)
+            picker.$emit('pick', [start, end])
+          }
+        }]
+      }
     }
   },
   created() {
     this.channelData = this.dict.channel_type
+    this.statusArr = this.dict.upload_status
   },
   methods: {
     // 钩子：在获取表格数据之前执行，false 则代表不获取数据
@@ -321,39 +401,38 @@ export default {
       this.dlogTitle = '编辑'
     },
     exprotGameInfo() {
-      const params = this.crud.getQueryParams()
-      const filename = {
-        channel: params.type,
-        uploadTime: params.uploadTime
+      const deepData = JSON.parse(JSON.stringify(this.exportscopeData))
+      for (var key in deepData) {
+        deepData[key] = null
       }
-      console.log(params)
-      if (params.type && params.uploadTime) {
-        download('/api/channelUploadRecord/downloadFinaTemp', params)
-          .then((result) => {
-            downloadFile(result, filename, 'xlsx')
-            this.crud.downloadLoading = false
-          })
-          .catch(() => {
-            this.crud.downloadLoading = false
-          })
-      } else {
-        if (params.type) {
-          this.$notify({
-            message: '请选择时间',
-            type: 'warning'
-          })
-        } else if (params.uploadTime) {
-          this.$notify({
-            message: '请选择渠道',
-            type: 'warning'
+      this.isShowDlogEx = !this.isShowDlogEx
+      this.dlogTitle = '导出'
+    },
+    sendDataForSer() {
+      this.$refs['exportscopeData'].validate((valid) => {
+        if (valid) {
+          if (this.exportscopeData.uploadTime[0].getTime() === this.exportscopeData.uploadTime[1].getTime()) {
+            this.exportscopeData.uploadTime = parseTimeToMol(this.exportscopeData.uploadTime[0])
+          } else {
+            this.exportscopeData.uploadTime = parseTimeToMol(this.exportscopeData.uploadTime[0]) + '至' + parseTimeToMol(this.exportscopeData.uploadTime[1])
+          }
+          this.exportscopeData.tempType = 0
+          crudChannelDownloadRecord.add(this.exportscopeData).then(res => {
+            this.$notify({
+              message: '新增成功',
+              type: 'success'
+            })
+            this.logClose()
+            this.crud.refresh()
           })
         } else {
           this.$notify({
-            message: '请选择参数',
+            message: '请填入必填参数',
             type: 'warning'
           })
+          return false
         }
-      }
+      })
     },
     getServiceValue() {
       this.$refs['scopeData'].validate((valid) => {
@@ -415,6 +494,24 @@ export default {
       this.isLoading = false
       for (var key in this.scopeData) {
         this.scopeData[key] = null
+      }
+    },
+    logClose() {
+      this.isShowDlogEx = !this.isShowDlogEx
+      this.$refs['exportscopeData'].resetFields()
+      this.exportscopeData = JSON.parse(JSON.stringify(this.exportscopeData))
+      this.isLoading = false
+      for (var key in this.exportscopeData) {
+        this.exportscopeData[key] = null
+      }
+    },
+    exbeforClose() {
+      this.isShowDlogEx = !this.isShowDlogEx
+      this.$refs['exportscopeData'].resetFields()
+      this.exportscopeData = JSON.parse(JSON.stringify(this.exportscopeData))
+      this.isLoading = false
+      for (var key in this.exportscopeData) {
+        this.exportscopeData[key] = null
       }
     },
     getDateInfo() {

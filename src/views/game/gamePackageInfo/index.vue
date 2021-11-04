@@ -52,6 +52,16 @@
               icon="el-icon-plus"
               @click="addConfig()"
             >新增</el-button>
+            <el-button
+              v-if="crud.optShow.download"
+              :loading="crud.downloadLoading"
+              :disabled="!checkPer(['admin','channelUploadRecord:add'])"
+              class="filter-item"
+              size="mini"
+              type="warning"
+              icon="el-icon-download"
+              @click="exprotGameInfo()"
+            >导出</el-button>
             <rrOperation :crud="crud" />
             <crudOperation :permission="permission" />
           </div>
@@ -124,6 +134,53 @@
                 type="primary"
                 @click="getServiceValue"
               >确认</el-button>
+            </div>
+          </el-dialog>
+          <!--导出表单组件-->
+          <el-dialog :close-on-click-modal="false" :before-close="exbeforClose" :visible.sync="isShowDlogEx" :title="dlogTitle" width="500px">
+            <el-form ref="exportscopeData" :model="exportscopeData" :rules="exportRules" size="small" label-width="80px">
+              <el-form-item label="游戏代码" prop="criteria">
+                <el-select
+                  v-model="exportscopeData.criteria"
+                  clearable
+                  size="small"
+                  placeholder="游戏代码"
+                  class="filter-item"
+                  style="width: 150px"
+                >
+                  <el-option
+                    v-for="item in gameCodeArr"
+                    :key="item.key"
+                    :label="item.gameName"
+                    :value="item.gameCode"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="导出范围" prop="uploadTime">
+                <el-date-picker
+                  v-model="exportscopeData.uploadTime"
+                  type="monthrange"
+                  align="right"
+                  unlink-panels
+                  range-separator=":"
+                  start-placeholder="开始月份"
+                  end-placeholder="结束月份"
+                  :picker-options="pickerOptions"
+                />
+              </el-form-item>
+              <el-form-item label="备注">
+                <el-input
+                  v-model="exportscopeData.remark"
+                  type="textarea"
+                  :rows="2"
+                  style="width: 370px;"
+                />
+              </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+              <el-button type="text" @click="logClose">取消</el-button>
+              <el-button :loading="crud.status.cu === 2" type="primary" @click="sendDataForSer">确认</el-button>
             </div>
           </el-dialog>
           <!--表格渲染-->
@@ -212,7 +269,7 @@
           <div slot="header" class="clearfix">
             <span v-if="crud.getdeptName">{{ crud.getdeptName +" - " }}</span> <span v-if="crud.getuserName">{{ crud.getuserName }}</span> <span>配置查询</span>
           </div>
-          <gameChannelConfig ref="gameChannelConfig" :permission="permission" />
+          <gameChannelConfig ref="gameChannelConfig" :row-data="rowData" :permission="permission" />
         </el-card>
       </el-col>
     </el-row>
@@ -221,8 +278,10 @@
 
 <script>
 import crudRefGamePackageInfo from '@/api/game/gamePackInfo'
+import crudChannelDownloadRecord from '@/api/channelDownload/channelDownloadRecord'
 import gameChannelConfig from './gameChannelConfig'
 import CRUD, { presenter, header, form, crud } from '@crud/crud'
+import { parseTime, parseTimeToMol } from '@/utils/index'
 import rrOperation from '@crud/RR.operation'
 import crudOperation from '@crud/CRUD.operation'
 import pagination from '@crud/Pagination'
@@ -245,10 +304,12 @@ export default {
   data() {
     return {
       isShowDelg: false,
+      isShowDlogEx: false,
       isShow: false,
       scopeData: {
         gameCode: null, gameName: null, onlineTime: null, packageName: null, channelType: null, accountNum: null, remark: null
       },
+      exportscopeData: { criteria: null, uploadTime: null, remark: null },
       permission: {
         add: ['admin', 'gamePackageInfo:add'],
         edit: ['admin', 'gamePackageInfo:edit'],
@@ -263,12 +324,45 @@ export default {
         channelType: [{ required: true, message: '渠道不能为空', trigger: 'change' }],
         accountNum: [{ required: true, message: '账号不能为空', trigger: 'blur' }]
       },
+      exportRules: {
+        uploadTime: [
+          { required: true, message: '导出范围不能为空', trigger: 'change' }
+        ],
+        criteria: [
+          { required: true, message: '游戏代码不能为空', trigger: 'change' }
+        ]
+      },
       channelArr: null,
       channel_type: null,
       curdHook: '',
       dlogTitle: '',
       dialogLoading: false,
-      pop: false
+      pop: false,
+      rowData: {},
+      gameCodeArr: [],
+      pickerOptions: {
+        shortcuts: [{
+          text: '本月',
+          onClick(picker) {
+            picker.$emit('pick', [new Date(), new Date()])
+          }
+        }, {
+          text: '今年至今',
+          onClick(picker) {
+            const end = new Date()
+            const start = new Date(new Date().getFullYear(), 0)
+            picker.$emit('pick', [start, end])
+          }
+        }, {
+          text: '最近三个月',
+          onClick(picker) {
+            const end = new Date()
+            const start = new Date()
+            start.setMonth(start.getMonth() - 3)
+            picker.$emit('pick', [start, end])
+          }
+        }]
+      }
     }
   },
   // eslint-disable-next-line vue/order-in-components
@@ -282,6 +376,10 @@ export default {
     console.log(this.dict)
     this.channelArr = this.dict.game_pack_channel
     this.channel_type = this.dict.label.game_pack_channel
+    crudChannelDownloadRecord.getGameCode().then(res => {
+      console.log(res)
+      this.gameCodeArr.push(res)
+    })
   },
   methods: {
     // 钩子：在获取表格数据之前执行，false 则代表不获取数据
@@ -309,6 +407,14 @@ export default {
       this.scopeData = deepData
       this.curdHook = 'edit'
       this.dlogTitle = `编辑配置`
+    },
+    exprotGameInfo() {
+      const deepData = JSON.parse(JSON.stringify(this.exportscopeData))
+      for (var key in deepData) {
+        deepData[key] = null
+      }
+      this.isShowDlogEx = !this.isShowDlogEx
+      this.dlogTitle = '导出'
     },
     getServiceValue() {
       const _this = this
@@ -393,12 +499,58 @@ export default {
       if (this.checkPer(['admin', 'gameChannelConfig:list'])) {
         if (val) {
           console.log(val)
+          this.rowData = val
           this.$refs.gameChannelConfig.query.packId = val.id
           this.$refs.gameChannelConfig.query.gameCode = val.gameCode
+          this.$refs.gameChannelConfig.query.createTime = [parseTime(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), parseTime(new Date(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)))]
           this.$refs.gameChannelConfig.crud.toQuery()
         }
       } else {
         this.$message.error('没有权限')
+      }
+    },
+    sendDataForSer() {
+      this.$refs['exportscopeData'].validate((valid) => {
+        if (valid) {
+          if (this.exportscopeData.uploadTime[0].getTime() === this.exportscopeData.uploadTime[1].getTime()) {
+            this.exportscopeData.uploadTime = parseTimeToMol(this.exportscopeData.uploadTime[0])
+          } else {
+            this.exportscopeData.uploadTime = parseTimeToMol(this.exportscopeData.uploadTime[0]) + '至' + parseTimeToMol(this.exportscopeData.uploadTime[1])
+          }
+          this.exportscopeData.tempType = 1
+          crudChannelDownloadRecord.add(this.exportscopeData).then(res => {
+            this.$notify({
+              message: '新增成功',
+              type: 'success'
+            })
+            this.logClose()
+            this.crud.refresh()
+          })
+        } else {
+          this.$notify({
+            message: '请填入必填参数',
+            type: 'warning'
+          })
+          return false
+        }
+      })
+    },
+    logClose() {
+      this.isShowDlogEx = !this.isShowDlogEx
+      this.$refs['exportscopeData'].resetFields()
+      this.exportscopeData = JSON.parse(JSON.stringify(this.exportscopeData))
+      this.isLoading = false
+      for (var key in this.exportscopeData) {
+        this.exportscopeData[key] = null
+      }
+    },
+    exbeforClose() {
+      this.isShowDlogEx = !this.isShowDlogEx
+      this.$refs['exportscopeData'].resetFields()
+      this.exportscopeData = JSON.parse(JSON.stringify(this.exportscopeData))
+      this.isLoading = false
+      for (var key in this.exportscopeData) {
+        this.exportscopeData[key] = null
       }
     }
   }

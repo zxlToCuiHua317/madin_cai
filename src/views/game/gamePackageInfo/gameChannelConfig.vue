@@ -24,7 +24,7 @@
             />
           </el-select>
           <el-date-picker
-            v-model="query.createTime"
+            v-model="defaultSetTime"
             :default-time="['00:00:00', '23:59:59']"
             type="daterange"
             range-separator=":"
@@ -33,6 +33,7 @@
             value-format="yyyy-MM-dd HH:mm:ss"
             start-placeholder="开始日期"
             end-placeholder="结束日期"
+            @input="changeTime"
           />
         </div>
         <el-button
@@ -46,7 +47,8 @@
         >新增</el-button>
 
         <!--如果想在工具栏加入更多按钮，可以使用插槽方式， slot = 'left' or 'right'-->
-        <rrOperation :crud="crud" />
+        <rrOperation :item-class="isVisible" />
+        <el-button v-if="crud.optShow.reset" class="filter-item" size="mini" type="warning" icon="el-icon-refresh-left" @click="clearQueryData">重置</el-button>
         <crudOperation :permission="permission" />
         <!-- 表单 -->
         <el-dialog
@@ -99,7 +101,7 @@
               </el-select>
             </el-form-item>
             <el-form-item label="渠道费率" prop="channelFee">
-              <el-input-number v-model="scopeData.channelFee" :precision="0" :max="100" />
+              <el-input-number v-model="scopeData.channelFee" :precision="4" :max="100" />
             </el-form-item>
             <el-form-item label="备注">
               <el-input
@@ -197,6 +199,7 @@
 <script>
 import crudRefGameChannelConfig from '@/api/game/gamechanneConfig'
 import CRUD, { presenter, header, form, crud } from '@crud/crud'
+import { parseTime } from '@/utils/index'
 import rrOperation from '@crud/RR.operation'
 import crudOperation from '@crud/CRUD.operation'
 import pagination from '@crud/Pagination'
@@ -217,11 +220,18 @@ export default {
       queryOnPresenterCreated: false
     })
   },
+  props: {
+    // eslint-disable-next-line vue/require-default-prop
+    rowData: {
+      type: Object
+    }
+  },
   // 数据字典
   dicts: ['channel_type'],
   data() {
     return {
       isShowDelg: false,
+      isVisible: true,
       isShow: false,
       offPreview: false,
       dialogVisible: false,
@@ -249,6 +259,8 @@ export default {
       channelArr: null,
       sendArr: [{ label: '未发送', value: 0 }, { label: '已发送', value: 1 }],
       fileList: [],
+      defaultSetTime: [],
+      defaultGetTime: [],
       fileName: null,
       fileNamespace: null,
       nowDate: Date.now(),
@@ -257,11 +269,17 @@ export default {
       getImgPath: null,
       dialogLoading: false,
       curdHook: '',
-      dlogTitle: ''
+      dlogTitle: '',
+      getPackId: this.crud.query.packId,
+      getGameCode: this.crud.query.gameCode
     }
   },
   created() {
     this.channelArr = this.dict.channel_type
+    this.setDefaultTime()
+  },
+  beforeMount() {
+    console.log(this.rowData)
   },
   methods: {
     // 钩子：在获取表格数据之前执行，false 则代表不获取数据
@@ -285,6 +303,30 @@ export default {
       this.isDel = true
       this.fileList = []
     },
+    changeTime(data) {
+      this.query.createTime = data
+    },
+    clearQueryData(toQuery = true) {
+      const defaultQuery = JSON.parse(JSON.stringify(this.crud.defaultQuery))
+      const query = this.crud.query
+      Object.keys(query).forEach(key => {
+        query[key] = defaultQuery[key]
+      })
+      // 重置参数
+      this.params = {}
+      if (toQuery) {
+        this.crud.toQuery()
+      }
+      console.log(this.query)
+      this.defaultSetTime = this.defaultGetTime
+      this.crud.refresh()
+    },
+    setDefaultTime() {
+      this.defaultStart = parseTime(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+      this.defaultEnd = parseTime(new Date(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)))
+      this.defaultSetTime = [this.defaultStart, this.defaultEnd]
+      this.defaultGetTime = [this.defaultStart, this.defaultEnd]
+    },
     fileChange(file, fileList) {
       this.logo = file.raw // 取出上传文件的对象，在其它地方也可以使用
       this.fileList = fileList
@@ -307,15 +349,14 @@ export default {
       this.$message.error('只能上传一个文件哦')
     },
     addConfig() {
-      console.log(this.query)
-      console.log(this.query.gameCode)
-      this.scopeData.gameCode = this.query.gameCode
+      console.log(this.rowData)
       const deepData = JSON.parse(JSON.stringify(this.scopeData))
       for (var key in deepData) {
         deepData[key] = null
       }
-      deepData.gameCode = this.query.gameCode
-      this.scopeData.deepData
+      deepData.gameCode = this.rowData.gameCode
+      console.log(deepData)
+      this.scopeData = deepData
       this.isShowDelg = !this.isShowDelg
       this.curdHook = 'add'
       this.dlogTitle = `新增配置`
@@ -330,18 +371,29 @@ export default {
     },
     getServiceValue() {
       const _this = this
-      console.log(this.query)
-      this.scopeData.packId = this.query.packId
+      this.scopeData.packId = this.rowData.id
       this.$refs['form'].validate((valid) => {
         if (valid) {
           switch (this.curdHook) {
             case 'add':
               _this.dialogLoading = true
               crudRefGameChannelConfig.add(_this.scopeData).then(res => {
-                _this.$notify({
-                  message: '新增成功',
-                  type: 'success'
-                })
+                console.log(res)
+                if (res.message) {
+                  _this.closeTip()
+                  _this.crud.refresh()
+                  _this.dialogLoading = false
+                } else {
+                  _this.$notify({
+                    message: '新增成功',
+                    type: 'success'
+                  })
+                  _this.closeTip()
+                  _this.crud.refresh()
+                  _this.dialogLoading = false
+                }
+              }).catch(err => {
+                console.log(err)
                 _this.closeTip()
                 _this.crud.refresh()
                 _this.dialogLoading = false
@@ -365,15 +417,25 @@ export default {
       })
     },
     delConfig(data) {
-      const ids = []
-      ids.push(data.id)
-      crudRefGameChannelConfig.del(ids).then(res => {
-        this.$notify({
-          message: '删除成功',
-          type: 'success'
+      const monStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()
+      const monEnd = new Date(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)).getTime()
+      const delTime = new Date(data.createTime).getTime()
+      if (delTime > monStart && delTime < monEnd) {
+        const ids = []
+        ids.push(data.id)
+        crudRefGameChannelConfig.del(ids).then(res => {
+          this.$notify({
+            message: '删除成功',
+            type: 'success'
+          })
+          this.crud.refresh()
         })
-        this.crud.refresh()
-      })
+      } else {
+        this.$notify({
+          message: '只能删除当前月份的数据',
+          type: 'warning'
+        })
+      }
     },
     delImgPath() {
       this.curdHook = 'delImg'

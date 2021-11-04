@@ -51,6 +51,7 @@
         </el-select>
         <rrOperation :crud="crud" />
         <el-button
+          v-show="isShowDlog"
           v-if="crud.optShow.download"
           :loading="crud.downloadLoading"
           :disabled="!checkPer(['admin','channelDownloadRecord:add'])"
@@ -84,7 +85,7 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item v-show="isChannel" label="渠道">
+          <el-form-item v-show="isChannel" label="渠道" prop="channelType">
             <el-select
               v-model="scopeData.channelType"
               clearable
@@ -101,7 +102,7 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item v-show="isGame" label="游戏代码">
+          <el-form-item v-show="isGame" label="游戏代码" prop="gameCode">
             <el-select
               v-model="scopeData.gameCode"
               clearable
@@ -118,7 +119,7 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="下载时间">
+          <el-form-item label="导出范围" prop="uploadTime">
             <el-date-picker
               v-model="scopeData.uploadTime"
               type="monthrange"
@@ -151,9 +152,13 @@
             {{ dict.label.download_type[scope.row.tempType] }}
           </template>
         </el-table-column>
-        <el-table-column align="center" prop="channelType" label="渠道" />
-        <el-table-column align="center" prop="gameCode" label="游戏代码" />
-        <el-table-column align="center" prop="uploadTime" label="下载时间" />
+        <el-table-column align="center" prop="criteria" label="条件">
+          <template slot-scope="scope">
+            {{ scope.row.criteria }}
+          </template>
+        </el-table-column>
+        <el-table-column align="center" prop="uploadTime" label="导出范围" />
+        <el-table-column align="center" prop="createBy" label="创建人" />
         <el-table-column align="center" prop="createTime" label="创建时间" />
         <el-table-column align="center" prop="status" label="状态">
           <template slot-scope="scope">
@@ -161,12 +166,18 @@
           </template>
         </el-table-column>
         <el-table-column align="center" prop="remark" label="备注" />
-        <el-table-column v-if="checkPer(['admin','channelDownloadRecord:edit','channelDownloadRecord:del'])" label="操作" width="150px" align="center">
+        <el-table-column v-if="checkPer(['admin','channelDownloadRecord:edit'])" label="操作" width="150px" align="center">
           <template slot-scope="scope">
-            <udOperation
-              :data="scope.row"
-              :permission="permission"
-            />
+            <div v-show="scope.row.status === 3" class="edit">
+              <el-button
+                size="mini"
+                type="warning"
+                :disabled="!checkPer(['admin','channelDownloadRecord:edit'])"
+                icon="el-icon-download"
+                :loading="dialogLoading"
+                @click="download(scope.row)"
+              >下载</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -179,16 +190,15 @@
 <script>
 import crudChannelDownloadRecord from '@/api/channelDownload/channelDownloadRecord'
 import CRUD, { presenter, header, form, crud } from '@crud/crud'
-import { parseTimeToMol } from '@/utils/index'
+import { parseTimeToMol, downloadFileChannel } from '@/utils/index'
 import rrOperation from '@crud/RR.operation'
 import crudOperation from '@crud/CRUD.operation'
-import udOperation from '@crud/UD.operation'
 import pagination from '@crud/Pagination'
 
 const defaultForm = { id: null, tempType: null, channelType: null, gameCode: null, uploadTime: null, filename: null, filepath: null, createBy: null, createTime: null, status: null, errMsg: null, updateTime: null, remark: null }
 export default {
   name: 'ChannelDownloadRecord',
-  components: { pagination, crudOperation, rrOperation, udOperation },
+  components: { pagination, crudOperation, rrOperation },
   mixins: [presenter(), header(), form(defaultForm), crud()],
   dicts: ['download_status', 'channel_type', 'download_type'],
   cruds() {
@@ -204,6 +214,15 @@ export default {
       rules: {
         tempType: [
           { required: true, message: '模板类型不能为空', trigger: 'blur' }
+        ],
+        uploadTime: [
+          { required: true, message: '导出范围不能为空', trigger: 'change' }
+        ],
+        gameCode: [
+          { required: true, message: '游戏代码不能为空', trigger: 'change' }
+        ],
+        channelType: [
+          { required: true, message: '渠道不能为空', trigger: 'change' }
         ]
       },
       queryTypeOptions: [
@@ -220,6 +239,7 @@ export default {
       isChannel: false,
       curdHook: '',
       dlogTitle: '',
+      dialogLoading: false,
       pickerOptions: {
         shortcuts: [{
           text: '本月',
@@ -271,38 +291,59 @@ export default {
       this.dlogTitle = '新增'
     },
     sendDataForSer() {
-      switch (this.curdHook) {
-        case 'add':
+      this.$refs['scopeData'].validate((valid) => {
+        if (valid) {
+          switch (this.curdHook) {
+            case 'add':
 
-          if (this.scopeData.uploadTime[0].getTime() === this.scopeData.uploadTime[1].getTime()) {
-            this.scopeData.uploadTime = parseTimeToMol(this.scopeData.uploadTime[0])
-          } else {
-            this.scopeData.uploadTime = parseTimeToMol(this.scopeData.uploadTime[0]) + '至' + parseTimeToMol(this.scopeData.uploadTime[1])
-          }
-          if (this.scopeData.tempType && this.scopeData.uploadTime) {
-            crudChannelDownloadRecord.add(this.scopeData).then(res => {
-              this.$notify({
-                message: '新增成功',
-                type: 'success'
-              })
-              this.logClose()
-              this.crud.refresh()
-            })
-          } else {
-            this.$notify({
-              message: '请填入必填参数',
-              type: 'warning'
-            })
-          }
+              if (this.scopeData.uploadTime[0].getTime() === this.scopeData.uploadTime[1].getTime()) {
+                this.scopeData.uploadTime = parseTimeToMol(this.scopeData.uploadTime[0])
+              } else {
+                this.scopeData.uploadTime = parseTimeToMol(this.scopeData.uploadTime[0]) + '至' + parseTimeToMol(this.scopeData.uploadTime[1])
+              }
+              if (this.scopeData.tempType && this.scopeData.uploadTime) {
+                crudChannelDownloadRecord.add(this.scopeData).then(res => {
+                  this.$notify({
+                    message: '新增成功',
+                    type: 'success'
+                  })
+                  this.logClose()
+                  this.crud.refresh()
+                })
+              } else {
+                this.$notify({
+                  message: '请填入必填参数',
+                  type: 'warning'
+                })
+              }
 
-          console.log(this.scopeData)
-          break
-      }
+              console.log(this.scopeData)
+              break
+          }
+        } else {
+          return false
+        }
+      })
+    },
+    download(data) {
+      console.log(data)
+
+      const url = '/api/channelDownloadRecord/downloadTemp'
+      this.dialogLoading = true
+      crudChannelDownloadRecord.downLoadTemp(url, data.id).then(res => {
+        console.log(res)
+        downloadFileChannel(res, data.filename)
+        this.dialogLoading = false
+      }).catch(err => {
+        this.dialogLoading = false
+        console.log(err)
+      })
     },
     beforeClose() {
       this.isChannel = false
       this.isGame = false
       this.isShowDlog = !this.isShowDlog
+      this.$refs['scopeData'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       for (var key in this.scopeData) {
         this.scopeData[key] = null
@@ -312,6 +353,7 @@ export default {
       this.isChannel = false
       this.isGame = false
       this.isShowDlog = !this.isShowDlog
+      this.$refs['scopeData'].resetFields()
       this.scopeData = JSON.parse(JSON.stringify(this.scopeData))
       for (var key in this.scopeData) {
         this.scopeData[key] = null
@@ -321,9 +363,17 @@ export default {
       switch (data) {
         case '0':
           this.isChannel = true
+          this.isGame = false
+          // eslint-disable-next-line no-unused-vars
+          var { gameCode, ...gameCodedata } = this.rules
+          this.rules = gameCodedata
           break
         case '1':
           this.isGame = true
+          this.isChannel = false
+          // eslint-disable-next-line no-unused-vars
+          var { channelType, ...channelTypedata } = this.rules
+          this.rules = channelTypedata
           break
         default:
           this.isChannel = false

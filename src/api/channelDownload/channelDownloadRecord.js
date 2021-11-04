@@ -31,4 +31,14 @@ export function getGameCode() {
   })
 }
 
-export default { add, edit, del, getGameCode }
+export function downLoadTemp(url, params) {
+  console.log(url)
+  console.log(params)
+  return request({
+    url: url + '?id=' + params,
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+export default { add, edit, del, getGameCode, downLoadTemp }
