@@ -130,7 +130,11 @@
       </el-dialog>
       <!--表格渲染-->
       <el-table ref="table" v-loading="crud.loading" border :data="crud.data" size="small" style="width: 100%;" @sort-change="sortData" @selection-change="crud.selectionChangeHandler">
-        <el-table-column prop="uploadId" label="上传表ID" />
+        <el-table-column prop="passport" :sortable="'custom'" label="用户唯一标识" />
+        <el-table-column prop="gameCode" :sortable="'custom'" label="游戏唯一标识" />
+        <el-table-column prop="lpOrderId" :sortable="'custom'" label="lunplay交易订单号" />
+        <el-table-column prop="lpoint" :sortable="'custom'" label="商品项lp点数" />
+        <el-table-column prop="moneyUsd" :sortable="'custom'" label="商品项美金" />
         <el-table-column prop="uploadTime" label="渠道月份" />
         <el-table-column prop="dataStatus" label="数据状态">
           <template slot-scope="scope">
@@ -158,11 +162,6 @@
         <el-table-column prop="merAmount" label="Amount (Merchant Currency)" />
         <el-table-column prop="basePlanId" label="Base Plan ID" />
         <el-table-column prop="offerId" label="Offer ID" />
-        <el-table-column prop="passport" :sortable="'custom'" label="用户唯一标识" />
-        <el-table-column prop="gameCode" :sortable="'custom'" label="游戏唯一标识" />
-        <el-table-column prop="lpOrderId" :sortable="'custom'" label="lunplay交易订单号" />
-        <el-table-column prop="lpoint" :sortable="'custom'" label="商品项lp点数" />
-        <el-table-column prop="moneyUsd" :sortable="'custom'" label="商品项美金" />
       </el-table>
       <!--分页组件-->
       <pagination />
