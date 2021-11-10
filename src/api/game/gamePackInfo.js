@@ -23,5 +23,12 @@ export function edit(data) {
     data
   })
 }
+export function downloadAll(data) {
+  return request({
+    url: '/api/gamePackageInfo/addAllDownload',
+    method: 'get',
+    data
+  })
+}
 
 export default { add, edit, del }

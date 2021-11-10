@@ -165,7 +165,7 @@
         </div>
       </el-dialog>
       <!--表格渲染-->
-      <el-table ref="table" v-loading="crud.loading" border :data="crud.data" size="small" style="width: 100%;" @selection-change="crud.selectionChangeHandler">
+      <el-table ref="table" v-loading="crud.loading" border :data="crud.data" size="small" style="width: 100%;" @sort-change="sortData" @selection-change="crud.selectionChangeHandler">
         <el-table-column align="center" prop="gameCode" :sortable="'custom'" label="游戏唯一标识" />
         <el-table-column align="center" prop="accountNum" :sortable="'custom'" label="开发者账号" />
         <el-table-column align="center" prop="lpoint" :sortable="'custom'" label="商品项lp点数" />
@@ -242,7 +242,13 @@ export default {
           { required: true, message: '上传时间，格式yyyy-MM不能为空', trigger: 'blur' }
         ]
       },
-      statusArr: null
+      statusArr: null,
+      sortProp: null,
+      type: {
+        ascending: 'asc',
+        descending: 'desc'
+      },
+      sortType: null
     }
   },
   created() {

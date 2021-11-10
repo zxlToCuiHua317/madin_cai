@@ -20,21 +20,6 @@
           />
         </el-select>
         <el-select
-          v-model="query.gameCode"
-          clearable
-          size="small"
-          placeholder="游戏代码"
-          class="filter-item"
-          style="width: 150px"
-        >
-          <el-option
-            v-for="item in gameCodeArr"
-            :key="item.key"
-            :label="item.gameName"
-            :value="item.gameCode"
-          />
-        </el-select>
-        <el-select
           v-model="query.status"
           clearable
           size="small"
@@ -49,6 +34,23 @@
             :value="item.value"
           />
         </el-select>
+        <el-input
+          v-model="query.criteria"
+          clearable
+          placeholder="条件"
+          style="width: 200px"
+          class="filter-item"
+          @keyup.enter.native="crud.toQuery"
+        />
+        <el-date-picker
+          v-model="query.uploadTime"
+          type="month"
+          range-separator=":"
+          size="small"
+          class="date-item"
+          value-format="yyyy-MM"
+          placeholder="导出范围"
+        />
         <rrOperation :crud="crud" />
         <el-button
           v-show="isShowDlog"

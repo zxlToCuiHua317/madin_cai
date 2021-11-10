@@ -26,7 +26,7 @@ export function edit(data) {
 
 export function sortData(data) {
   return request({
-    url: 'api/channelDataGoogle',
+    url: 'api/channelDataIos',
     method: 'get',
     params: {
       page: data.page,

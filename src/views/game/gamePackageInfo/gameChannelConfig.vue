@@ -9,7 +9,7 @@
         <div>
           <!-- 搜索 -->
           <el-select
-            v-model="query.type"
+            v-model="query.channelType"
             clearable
             size="small"
             placeholder="渠道类型"

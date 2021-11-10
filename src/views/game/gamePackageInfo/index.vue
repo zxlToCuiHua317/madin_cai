@@ -17,7 +17,7 @@
                 @keyup.enter.native="crud.toQuery"
               />
               <el-select
-                v-model="query.type"
+                v-model="query.channelType"
                 clearable
                 size="small"
                 placeholder="渠道类型"
@@ -267,7 +267,7 @@
       <el-col :xs="24" :sm="24" :md="14" :lg="11" :xl="13">
         <el-card class="box-card">
           <div slot="header" class="clearfix">
-            <span v-if="crud.getdeptName">{{ crud.getdeptName +" - " }}</span> <span v-if="crud.getuserName">{{ crud.getuserName }}</span> <span>配置查询</span>
+            <span v-if="getGameCode">{{ getGameName+'('+getGameCode+')'+'-' }}</span><span>储值渠道配置</span>
           </div>
           <gameChannelConfig ref="gameChannelConfig" :row-data="rowData" :permission="permission" />
         </el-card>
@@ -339,6 +339,8 @@ export default {
       dialogLoading: false,
       pop: false,
       rowData: {},
+      getGameCode: null,
+      getGameName: null,
       gameCodeArr: [],
       pickerOptions: {
         shortcuts: [{
@@ -499,6 +501,8 @@ export default {
       if (this.checkPer(['admin', 'gameChannelConfig:list'])) {
         if (val) {
           console.log(val)
+          this.getGameCode = val.gameCode
+          this.getGameName = val.gameName
           this.rowData = val
           this.$refs.gameChannelConfig.query.packId = val.id
           this.$refs.gameChannelConfig.query.gameCode = val.gameCode
