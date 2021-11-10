@@ -28,6 +28,30 @@
             :value="item.value"
           />
         </el-select>
+        <el-input
+          v-model="query.passport"
+          clearable
+          placeholder="passport"
+          style="width: 200px"
+          class="filter-item"
+          @keyup.enter.native="crud.toQuery"
+        />
+        <el-input
+          v-model="query.lpOrderId"
+          clearable
+          placeholder="lp订单号"
+          style="width: 200px"
+          class="filter-item"
+          @keyup.enter.native="crud.toQuery"
+        />
+        <el-input
+          v-model="query.gameCode"
+          clearable
+          placeholder="gameCode"
+          style="width: 200px"
+          class="filter-item"
+          @keyup.enter.native="crud.toQuery"
+        />
         <rrOperation :crud="crud" />
       </div>
       <!--如果想在工具栏加入更多按钮，可以使用插槽方式， slot = 'left' or 'right'-->

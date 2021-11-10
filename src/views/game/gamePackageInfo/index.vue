@@ -378,7 +378,7 @@ export default {
     this.channel_type = this.dict.label.game_pack_channel
     crudChannelDownloadRecord.getGameCode().then(res => {
       console.log(res)
-      this.gameCodeArr.push(res)
+      this.gameCodeArr = res
     })
   },
   methods: {

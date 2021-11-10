@@ -447,6 +447,7 @@ export default {
               if (this.scopeData.type && this.scopeData.uploadFile && this.scopeData.uploadTime) {
                 this.formData.append('type', this.scopeData.type)
                 this.formData.append('uploadTime', this.scopeData.uploadTime)
+                this.formData.append('remark', this.scopeData.remark)
                 crudUploadFile.add(this.formData).then(res => {
                   this.isLoading = false
                   this.$notify({
@@ -530,9 +531,6 @@ export default {
           }
         })
       }
-    },
-    ch() {
-
     }
   }
 }
